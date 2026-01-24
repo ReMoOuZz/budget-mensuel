@@ -30,3 +30,11 @@ function calculateMonth(month) {
 
   return { income, totalCharges, expensesNet, balance };
 }
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    toAmount,
+    sum,
+    calculateMonth,
+  };
+}

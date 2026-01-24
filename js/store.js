@@ -66,7 +66,12 @@ const DEFAULT_DATA_MODEL = {
   },
 };
 
+const hasLocalStorage =
+  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+
 function loadData() {
+  if (!hasLocalStorage) return cloneDefaults();
+
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return cloneDefaults();
 
@@ -84,6 +89,7 @@ function loadData() {
 let appData = loadData();
 
 function saveData() {
+  if (!hasLocalStorage) return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
 }
 
@@ -121,4 +127,14 @@ function mergeSettingsWithDefaults(existing = {}) {
     });
   });
   return result;
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    SETTINGS_KEYS,
+    DEFAULT_DATA_MODEL,
+    mergeSettingsWithDefaults,
+    ensureSettingsShape,
+    cloneDefaults,
+  };
 }

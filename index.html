@@ -5,111 +5,140 @@
     <title>Budget Mensuel</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
-  <body>
-    <header>
-      <h1>📊 Budget Mensuel</h1>
+  <body class="theme-dark">
+    <header class="topbar">
+      <div class="brand">
+        <img
+          src="./images/ChatGPT Image 24 janv. 2026, 14_40_30.png"
+          alt="Logo Budgify"
+        />
+        <h1>Budgify</h1>
+      </div>
       <select id="monthSelector"></select>
       <button id="newMonthBtn">➕ Nouveau mois</button>
       <button id="duplicateMonthBtn">📄 Dupliquer</button>
       <a href="settings.html">⚙️ Ajuster montants</a>
     </header>
 
-    <section class="summary">
-      <div>Report précédent : <span id="carryOver"></span> €</div>
-      <div>Total revenus : <span id="totalIncome"></span> €</div>
-      <div>Total charges : <span id="totalCharges"></span> €</div>
-      <div class="highlight">Reste à vivre : <span id="balance"></span> €</div>
-    </section>
+    <main class="dashboard">
+      <section class="card summary-card">
+        <div class="summary-grid">
+          <div>
+            <p class="label">Report précédent</p>
+            <p class="value"><span id="carryOver"></span> €</p>
+          </div>
+          <div>
+            <p class="label">Total revenus</p>
+            <p class="value accent"><span id="totalIncome"></span> €</p>
+          </div>
+          <div>
+            <p class="label">Total charges</p>
+            <p class="value"><span id="totalCharges"></span> €</p>
+          </div>
+          <div>
+            <p class="label">Reste à vivre</p>
+            <p class="value highlight"><span id="balance"></span> €</p>
+          </div>
+        </div>
+      </section>
 
-    <section>
-      <h2>💰 Revenus</h2>
-      <div id="incomeList"></div>
-      <button onclick="addIncome()">➕ Ajouter revenu</button>
-    </section>
+      <section class="card incomes-card">
+        <h2>💰 Revenus</h2>
+        <div id="incomeList"></div>
+        <button class="primary" onclick="addIncome()">➕ Ajouter revenu</button>
+      </section>
 
-    <section>
-      <h2>🏠 Charges fixes</h2>
-      <div id="fixedChargesList" class="fixed-list"></div>
-      <div class="totals">
-        Total charges fixes : <span id="fixedChargesTotal"></span> €
+      <div class="grid recurring-grid">
+        <section class="card recurring-card">
+          <h2>🏠 Charges fixes</h2>
+          <div id="fixedChargesList" class="fixed-list"></div>
+          <div class="totals">
+            Total charges fixes : <span id="fixedChargesTotal"></span> €
+          </div>
+        </section>
+
+        <section class="card recurring-card">
+          <h2>📺 Abonnements</h2>
+          <div id="subscriptionsList" class="fixed-list"></div>
+          <div class="totals">
+            Total abonnements : <span id="subscriptionsTotal"></span> €
+          </div>
+        </section>
+
+        <section class="card recurring-card">
+          <h2>💾 Épargne programmée</h2>
+          <div id="savingsList" class="fixed-list"></div>
+          <div class="totals">
+            Total épargne : <span id="savingsTotal"></span> €
+          </div>
+        </section>
+
+        <section class="card recurring-card">
+          <h2>🏦 Crédits</h2>
+          <div id="creditsList" class="fixed-list"></div>
+          <div class="totals">
+            Total crédits : <span id="creditsTotal"></span> €
+          </div>
+        </section>
+
+        <section class="card recurring-card wide">
+          <h2>📉 Charges variables</h2>
+          <div id="variableChargesList"></div>
+          <button class="primary" onclick="addVariableCharge()">
+            ➕ Ajouter charge
+          </button>
+        </section>
       </div>
-    </section>
 
-    <section>
-      <h2>📺 Abonnements</h2>
-      <div id="subscriptionsList" class="fixed-list"></div>
-      <div class="totals">
-        Total abonnements : <span id="subscriptionsTotal"></span> €
-      </div>
-    </section>
+      <section class="card expenses-card">
+        <div class="expenses-header">
+          <h2>🧾 Dépenses courantes</h2>
+          <div class="totals">
+            Dépenses nettes : <span id="expensesNet"></span> €
+          </div>
+        </div>
 
-    <section>
-      <h2>💾 Épargne programmée</h2>
-      <div id="savingsList" class="fixed-list"></div>
-      <div class="totals">
-        Total épargne : <span id="savingsTotal"></span> €
-      </div>
-    </section>
+        <form id="expenseForm" class="expense-form">
+          <input required placeholder="Objet" id="expLabel" />
+          <input
+            required
+            type="number"
+            min="0"
+            placeholder="Montant"
+            id="expAmount"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Remboursement"
+            id="expRefund"
+          />
+          <input type="date" id="expDate" />
+          <select id="expImportance">
+            <option value="faible">Faible</option>
+            <option value="modéré">Modéré</option>
+            <option value="important">Important</option>
+          </select>
+          <button class="primary">Ajouter</button>
+        </form>
 
-    <section>
-      <h2>🏦 Crédits</h2>
-      <div id="creditsList" class="fixed-list"></div>
-      <div class="totals">
-        Total crédits : <span id="creditsTotal"></span> €
-      </div>
-    </section>
-
-    <section>
-      <h2>📉 Charges variables</h2>
-      <div id="variableChargesList"></div>
-      <button onclick="addVariableCharge()">➕ Ajouter charge</button>
-    </section>
-
-    <section class="expenses">
-      <h2>🧾 Dépenses courantes</h2>
-
-      <form id="expenseForm">
-        <input required placeholder="Objet" id="expLabel" />
-        <input
-          required
-          type="number"
-          min="0"
-          placeholder="Montant"
-          id="expAmount"
-        />
-        <input
-          type="number"
-          min="0"
-          placeholder="Remboursement"
-          id="expRefund"
-        />
-        <input type="date" id="expDate" />
-        <select id="expImportance">
-          <option value="faible">Faible</option>
-          <option value="modéré">Modéré</option>
-          <option value="important">Important</option>
-        </select>
-        <button>Ajouter</button>
-      </form>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Objet</th>
-            <th>Montant</th>
-            <th>Remb.</th>
-            <th>Importance</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="expensesTable"></tbody>
-      </table>
-
-      <div class="totals">
-        Dépenses nettes : <span id="expensesNet"></span> €
-      </div>
-    </section>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Objet</th>
+                <th>Montant</th>
+                <th>Remb.</th>
+                <th>Importance</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="expensesTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
 
     <script src="js/store.js"></script>
     <script src="js/calculations.js"></script>
