@@ -43,7 +43,17 @@
       </section>
 
       <section class="card incomes-card">
-        <h2>💰 Revenus</h2>
+        <div class="incomes-header">
+          <h2>💰 Revenus</h2>
+          <button
+            type="button"
+            class="carry-btn"
+            onclick="adjustCarryOver()"
+            title="Ajouter une plus ou moins-value au calcul"
+          >
+            ⚖️ Report +/-
+          </button>
+        </div>
         <div id="incomeList"></div>
         <button class="primary" onclick="addIncome()">➕ Ajouter revenu</button>
       </section>

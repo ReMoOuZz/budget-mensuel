@@ -162,6 +162,22 @@ body.theme-dark {
   margin-bottom: 18px;
 }
 
+.incomes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.carry-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+  padding-inline: 14px;
+}
+
 .primary {
   background: linear-gradient(120deg, var(--accent), var(--accent-strong));
   border: none;

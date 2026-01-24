@@ -273,6 +273,29 @@ window.addIncome = function addIncome() {
   render();
 };
 
+window.adjustCarryOver = function adjustCarryOver() {
+  const month = appData.months[currentMonthKey];
+  if (!month) return;
+
+  const currentValue = Number(month.carryOver) || 0;
+  const input = prompt(
+    "Report manuel (positif ou négatif) à intégrer au calcul :",
+    currentValue.toString(),
+  );
+  if (input === null) return;
+
+  const normalized = input.replace(",", ".");
+  const value = Number(normalized);
+  if (!Number.isFinite(value)) {
+    toast("Montant invalide.", "warn");
+    return;
+  }
+
+  month.carryOver = value;
+  toast(`Report mis à jour : ${money(value)} €.`);
+  render();
+};
+
 /* -----------------------------
    Recurring settings lists (read-only)
 ------------------------------ */
