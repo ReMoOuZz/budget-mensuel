@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ajuster les montants</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="settings-page">
+    <header class="settings-header">
+      <h1>⚙️ Ajuster les montants récurrents</h1>
+      <a class="button-link" href="index.html">⬅️ Retour au tableau de bord</a>
+    </header>
+
+    <p class="settings-tip">
+      Modifiez ici les montants récurrents (charges fixes, abonnements,
+      épargne, crédits). Les valeurs sont immédiatement sauvegardées et
+      reflétées sur le dashboard.
+    </p>
+
+    <section>
+      <h2>🏠 Charges fixes</h2>
+      <div id="settings-fixedCharges" class="manage-list"></div>
+    </section>
+
+    <section>
+      <h2>📺 Abonnements</h2>
+      <div id="settings-subscriptions" class="manage-list"></div>
+    </section>
+
+    <section>
+      <h2>💾 Épargne programmée</h2>
+      <div id="settings-savings" class="manage-list"></div>
+    </section>
+
+    <section>
+      <h2>🏦 Crédits</h2>
+      <div id="settings-credits" class="manage-list"></div>
+    </section>
+
+    <script src="js/store.js"></script>
+    <script src="js/settings.js"></script>
+  </body>
+</html>

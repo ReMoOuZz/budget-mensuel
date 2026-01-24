@@ -1,0 +1,137 @@
+.row {
+  display: flex;
+  gap: 10px;
+  margin: 8px 0;
+}
+.row input.text {
+  flex: 1;
+  padding: 10px;
+}
+.row input.num {
+  width: 140px;
+  padding: 10px;
+}
+.row-readonly {
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 6px;
+}
+.row-readonly .label {
+  font-weight: 600;
+}
+.row-readonly .amount {
+  font-variant-numeric: tabular-nums;
+}
+.fixed-list {
+  margin: 12px 0 6px;
+}
+button {
+  padding: 10px 12px;
+  cursor: pointer;
+}
+button.danger {
+  background: #ffecec;
+  border: 1px solid #ffb1b1;
+}
+
+.expenses {
+  border: 2px solid #eee;
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+th,
+td {
+  border-bottom: 1px solid #eee;
+  padding: 10px;
+  text-align: left;
+}
+.highlight {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.imp-low td {
+  opacity: 0.9;
+}
+.imp-med td {
+  font-weight: 600;
+}
+.imp-high td {
+  font-weight: 700;
+  border-left: 6px solid #ff5a5a;
+}
+
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  font-size: 14px;
+}
+.toast.show {
+  opacity: 1;
+}
+.toast[data-type="warn"] {
+  background: #6b4b00;
+}
+
+.empty {
+  color: #888;
+  font-style: italic;
+}
+
+.settings-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: system, -apple-system, "Segoe UI", sans-serif;
+}
+.settings-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.settings-tip {
+  color: #555;
+  margin-bottom: 20px;
+}
+.button-link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  background: #f0f0f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #ddd;
+}
+.manage-list {
+  margin: 12px 0;
+}
+.row-manage {
+  align-items: center;
+}
+.row-manage .label {
+  flex: 1;
+  font-weight: 600;
+}
+.row-manage input.num {
+  width: 140px;
+}
