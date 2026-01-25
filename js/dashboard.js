@@ -231,21 +231,23 @@ function renderIncomes() {
 
     row.innerHTML = `
       <input class="text" aria-label="Libellé revenu" value="${escapeHtml(inc.label)}" />
-      <input class="num" aria-label="Montant revenu" type="number" min="0" value="${Number(inc.amount || 0)}" />
+      <input class="num" aria-label="Montant revenu" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" value="${escapeHtml(formatNumberInputValue(inc.amount, true))}" />
       <button class="danger" title="Supprimer">✕</button>
     `;
 
     const [labelInput, amountInput, delBtn] =
       row.querySelectorAll("input,button");
+    labelInput.dataset.focusKey = `income-label-${inc.id}`;
+    amountInput.dataset.focusKey = `income-amount-${inc.id}`;
 
     labelInput.addEventListener("input", () => {
       inc.label = labelInput.value;
-      render();
+      rerenderPreservingFocus();
     });
 
     amountInput.addEventListener("input", () => {
       inc.amount = sanitizeAmount(amountInput.value);
-      render();
+      rerenderPreservingFocus();
     });
 
     delBtn.addEventListener("click", () => {
@@ -376,22 +378,24 @@ function renderVariableCharges() {
     row.className = "row";
 
     row.innerHTML = `
-      <input class="text" aria-label="Libellé charge variable" value="${escapeHtml(ch.label)}" />
-      <input class="num" aria-label="Montant charge variable" type="number" min="0" value="${Number(ch.amount || 0)}" />
+      <input class="text" aria-label="Libellé charge variable" placeholder="Ex: Alimentation" value="${escapeHtml(ch.label)}" />
+      <input class="num" aria-label="Montant charge variable" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" value="${escapeHtml(formatNumberInputValue(ch.amount, true))}" />
       <button class="danger" title="Supprimer">✕</button>
     `;
 
     const [labelInput, amountInput, delBtn] =
       row.querySelectorAll("input,button");
+    labelInput.dataset.focusKey = `variable-label-${ch.id}`;
+    amountInput.dataset.focusKey = `variable-amount-${ch.id}`;
 
     labelInput.addEventListener("input", () => {
       ch.label = labelInput.value;
-      render();
+      rerenderPreservingFocus();
     });
 
     amountInput.addEventListener("input", () => {
       ch.amount = sanitizeAmount(amountInput.value);
-      render();
+      rerenderPreservingFocus();
     });
 
     delBtn.addEventListener("click", () => {
@@ -410,7 +414,7 @@ window.addVariableCharge = function addVariableCharge() {
   const month = appData.months[currentMonthKey];
   month.variableCharges.push({
     id: crypto.randomUUID(),
-    label: "Nouvelle charge",
+    label: "",
     amount: 0,
   });
   toast("Charge variable ajoutée.");
@@ -490,17 +494,20 @@ function renderExpenses() {
     const tr = document.createElement("tr");
     tr.className = importanceClass(e.importance);
     const descriptor = describeExpense(e);
-    const amountText = `${descriptor.type === "refund" ? "−" : "+"}${money(descriptor.display)}`;
+    const amountText = `${descriptor.type === "refund" ? "+" : "−"}${money(descriptor.display)}`;
     const amountClass = `expense-amount ${descriptor.type === "refund" ? "refund" : "expense"}`;
     const flagIcon = descriptor.type === "refund" ? "↗" : "↘";
     const flagClass = `flag ${descriptor.type === "refund" ? "refund" : "expense"}`;
 
+    const label = formatExpenseLabel(e.label);
+    const importanceLabel = formatImportanceLabel(e.importance);
+
     tr.innerHTML = `
       <td>${escapeHtml(e.dateISO)}</td>
       <td class="expense-flag"><span class="${flagClass}">${flagIcon}</span></td>
-      <td>${escapeHtml(e.label)}</td>
+      <td>${escapeHtml(label)}</td>
       <td class="${amountClass}">${amountText} €</td>
-      <td>${escapeHtml(e.importance)}</td>
+      <td>${escapeHtml(importanceLabel)}</td>
       <td><button class="danger">Supprimer</button></td>
     `;
 
@@ -520,10 +527,7 @@ function compareExpense(a, b) {
 
   if (key === "dateISO") return a.dateISO.localeCompare(b.dateISO) * dir;
   if (key === "amount") {
-    return (
-      (describeExpense(a).net - describeExpense(b).net) *
-      dir
-    );
+    return (describeExpense(a).net - describeExpense(b).net) * dir;
   }
 
   if (key === "importance") {
@@ -544,8 +548,53 @@ function importanceClass(imp) {
    Validation + UI
 ------------------------------ */
 
+function rerenderPreservingFocus() {
+  withPreservedInputFocus(render);
+}
+
+function withPreservedInputFocus(callback) {
+  const active = document.activeElement;
+  const isEditable =
+    active && active.matches && active.matches("input, textarea");
+  const snapshot = isEditable
+    ? {
+        key: active.dataset.focusKey,
+        selectionStart: active.selectionStart,
+        selectionEnd: active.selectionEnd,
+        value: active.value,
+      }
+    : null;
+
+  callback();
+
+  if (!snapshot?.key) return;
+
+  const target = document.querySelector(
+    `[data-focus-key="${escapeSelectorKey(snapshot.key)}"]`,
+  );
+  if (!target) return;
+
+  target.focus({ preventScroll: true });
+  if (typeof snapshot.value === "string") {
+    target.value = snapshot.value;
+  }
+  if (
+    target.setSelectionRange &&
+    typeof snapshot.selectionStart === "number" &&
+    typeof snapshot.selectionEnd === "number"
+  ) {
+    const len = target.value?.length ?? 0;
+    const start = Math.min(snapshot.selectionStart, len);
+    const end = Math.min(snapshot.selectionEnd, len);
+    target.setSelectionRange(start, end);
+  }
+}
+
 function sanitizeAmount(v) {
-  const n = Number(v);
+  const normalized = String(v ?? "")
+    .trim()
+    .replace(",", ".");
+  const n = Number(normalized);
   if (Number.isNaN(n) || !Number.isFinite(n)) return 0;
   return Math.max(0, n);
 }
@@ -588,6 +637,37 @@ function describeExpense(expense) {
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function escapeSelectorKey(value) {
+  if (typeof CSS !== "undefined" && CSS.escape) {
+    return CSS.escape(value);
+  }
+  return String(value).replaceAll('"', '\\"');
+}
+
+function formatNumberInputValue(value, blankZero = false) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  if (blankZero && n === 0) return "";
+  return String(n).replace(".", ",");
+}
+
+function formatExpenseLabel(label) {
+  if (typeof label !== "string") return "";
+  const trimmed = label.trimStart();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+function formatImportanceLabel(value) {
+  if (typeof value !== "string") return "";
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "important") return "Important";
+  if (normalized === "modéré") return "Modéré";
+  if (normalized === "faible") return "Faible";
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function isValidDate(dateStr) {

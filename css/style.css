@@ -9,6 +9,7 @@
   --accent-strong: #ed51ff;
   --danger: #ff7b8f;
   --success: #5bfab5;
+  --warning: #ffb347;
   --grid-gap: 24px;
   --glow: 0 20px 60px rgba(117, 64, 255, 0.3);
   --radius: 18px;
@@ -380,11 +381,13 @@ tbody tr:hover {
 }
 
 .imp-low td {
-  opacity: 0.9;
+  opacity: 0.95;
+  border-left: 4px solid var(--success);
 }
 
 .imp-med td {
   font-weight: 600;
+  border-left: 4px solid var(--warning);
 }
 
 .imp-high td {

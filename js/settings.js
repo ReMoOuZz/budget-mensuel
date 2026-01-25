@@ -36,14 +36,15 @@ function buildRow(key, item) {
 
   const amountInput = document.createElement("input");
   amountInput.className = "num";
-  amountInput.type = "number";
-  amountInput.min = "0";
-  amountInput.step = "0.01";
-  amountInput.value = Number(item.amount || 0);
+  amountInput.type = "text";
+  amountInput.inputMode = "decimal";
+  amountInput.pattern = "[0-9]*[.,]?[0-9]*";
+  amountInput.placeholder = "0";
+  amountInput.value = formatAmountInput(item.amount);
 
   amountInput.addEventListener("change", () => {
     item.amount = sanitizeAmount(amountInput.value);
-    amountInput.value = item.amount;
+    amountInput.value = formatAmountInput(item.amount);
     persist();
     toast("Montant mis à jour.");
   });
@@ -62,9 +63,19 @@ function getSettingsList(key) {
 }
 
 function sanitizeAmount(value) {
-  const n = Number(value);
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(",", ".");
+  const n = Number(normalized);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.round(n * 100) / 100;
+}
+
+function formatAmountInput(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  const rounded = Math.round(n * 100) / 100;
+  return String(rounded).replace(".", ",");
 }
 
 function persist() {
