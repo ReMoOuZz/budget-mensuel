@@ -161,7 +161,7 @@ body.theme-dark {
 .recurring-card h2,
 .expenses-card h2 {
   margin-top: 0;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .incomes-header {
@@ -170,7 +170,7 @@ body.theme-dark {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .carry-btn {

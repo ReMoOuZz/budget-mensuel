@@ -1,6 +1,12 @@
 // js/dashboard.js
 // Dépendances: store.js (appData, saveData) + calculations.js (calculateMonth)
 
+const DEFAULT_INCOME_PLACEHOLDERS = [
+  "Salaire principal",
+  "Salaire secondaire",
+  "Autres revenus",
+];
+
 let currentMonthKey = getInitialMonthKey();
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -127,11 +133,12 @@ function createMonthFromTemplatesWithCarryOver(key) {
 
   // 2) Copier les templates settings vers le mois (option : garder modifiable ensuite)
   // Ici: on copie les revenus de base + on laisse variableCharges vide + expenses vide
-  const defaultIncomes = [
-    { id: crypto.randomUUID(), label: "Rémi", amount: 0 },
-    { id: crypto.randomUUID(), label: "Noémie", amount: 0 },
-    { id: crypto.randomUUID(), label: "Autres", amount: 0 },
-  ];
+  const defaultIncomes = DEFAULT_INCOME_PLACEHOLDERS.map((placeholder) => ({
+    id: crypto.randomUUID(),
+    label: "",
+    amount: 0,
+    placeholder,
+  }));
 
   // Si un mois précédent existe, on peut copier ses revenus (plus réaliste)
   if (appData.months[prevKey]?.incomes?.length) {
@@ -225,12 +232,13 @@ function renderIncomes() {
   const container = document.getElementById("incomeList");
   container.innerHTML = "";
 
-  month.incomes.forEach((inc) => {
+  month.incomes.forEach((inc, index) => {
     const row = document.createElement("div");
     row.className = "row";
+    const placeholder = inc.placeholder || getIncomePlaceholderText(index);
 
     row.innerHTML = `
-      <input class="text" aria-label="Libellé revenu" value="${escapeHtml(inc.label)}" />
+      <input class="text" aria-label="Libellé revenu" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(inc.label || "")}" />
       <input class="num" aria-label="Montant revenu" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" value="${escapeHtml(formatNumberInputValue(inc.amount, true))}" />
       <button class="danger" title="Supprimer">✕</button>
     `;
@@ -268,12 +276,18 @@ window.addIncome = function addIncome() {
   const month = appData.months[currentMonthKey];
   month.incomes.push({
     id: crypto.randomUUID(),
-    label: "Nouveau revenu",
+    label: "",
     amount: 0,
+    placeholder: getIncomePlaceholderText(month.incomes.length),
   });
   toast("Revenu ajouté.");
   render();
 };
+
+function getIncomePlaceholderText(index) {
+  if (!Number.isInteger(index) || index < 0) return "Revenu";
+  return DEFAULT_INCOME_PLACEHOLDERS[index] || `Revenu ${index + 1}`;
+}
 
 window.adjustCarryOver = function adjustCarryOver() {
   const month = appData.months[currentMonthKey];

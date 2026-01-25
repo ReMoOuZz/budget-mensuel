@@ -52,9 +52,9 @@ const DEFAULT_DATA_MODEL = {
   months: {
     "2026-01": {
       incomes: [
-        { id: uid("inc"), label: "Rémi", amount: 1628.28 },
-        { id: uid("inc"), label: "Noémie", amount: 1789.65 },
-        { id: uid("inc"), label: "Autres", amount: 0.0 },
+        { id: uid("inc"), label: "", placeholder: "Salaire principal", amount: 0 },
+        { id: uid("inc"), label: "", placeholder: "Salaire secondaire", amount: 0 },
+        { id: uid("inc"), label: "", placeholder: "Autres revenus", amount: 0 },
       ],
       variableCharges: [
         // (optionnel : dans ton ODT il y en a, mais tu ne me l’as pas demandé ici)
