@@ -20,7 +20,6 @@ const DEFAULT_DATA_MODEL = {
       { id: "fc_engie", label: "Engie", amount: 200.0 },
       { id: "fc_veolia", label: "Véolia", amount: 42.12 },
       { id: "fc_frais_carte", label: "Frais carte", amount: 18.0 },
-      { id: "fc_alimentation", label: "Alimentation", amount: 492.49 },
       { id: "fc_taxe_fonciere", label: "Taxe foncière", amount: 154.0 },
     ],
 

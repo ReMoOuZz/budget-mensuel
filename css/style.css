@@ -270,6 +270,38 @@ button:hover {
   color: var(--muted);
 }
 
+.recurring-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: 12px;
+}
+
+.recurring-card .fixed-list {
+  flex: 1;
+}
+
+.recurring-card .totals {
+  margin-top: auto;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text);
+  opacity: 0.95;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(168, 131, 255, 0.08);
+  box-shadow: 0 12px 35px rgba(168, 131, 255, 0.25);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.recurring-card .totals span {
+  color: var(--accent-strong);
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .expense-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
