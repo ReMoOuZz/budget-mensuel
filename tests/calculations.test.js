@@ -1,7 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { toAmount, sum, calculateMonth } = require("../js/calculations.js");
+const {
+  toAmount,
+  sum,
+  calculateMonth,
+  expenseNetValue,
+} = require("../js/calculations.js");
 
 if (typeof global.structuredClone !== "function") {
   global.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -38,7 +43,7 @@ test("sum gère les listes vides ou mal formées", () => {
   );
 });
 
-test("calculateMonth agrège revenus, charges et dépenses", () => {
+test("calculateMonth agrège revenus, charges et remboursements", () => {
   global.appData = { settings: baseSettings };
   const month = {
     carryOver: 100,
@@ -51,20 +56,37 @@ test("calculateMonth agrège revenus, charges et dépenses", () => {
       { amount: 50 },
     ],
     expenses: [
-      { amount: 120, refund: 20 },
-      { amount: 60, refund: 0 },
+      { amount: 120 },
+      { amount: 60, isRefund: true },
     ],
   };
 
   const result = calculateMonth(month);
 
   assert.equal(result.income, 2500);
-  assert.equal(result.expensesNet, 160);
+  assert.equal(result.expensesNet, 60);
   assert.equal(
     result.totalCharges,
-    800 + 120 + 15 + 100 + 250 + 200 + 160,
+    800 + 120 + 15 + 100 + 250 + 200 + 60,
   );
   assert.equal(result.balance, 100 + 2500 - result.totalCharges);
+});
+
+test("calculateMonth gère l'ancien champ refund", () => {
+  global.appData = { settings: baseSettings };
+  const month = {
+    carryOver: 0,
+    incomes: [],
+    variableCharges: [],
+    expenses: [
+      { amount: 200, refund: 50 },
+      { amount: 0, refund: 30 },
+    ],
+  };
+
+  const result = calculateMonth(month);
+
+  assert.equal(result.expensesNet, 120);
 });
 
 test("calculateMonth résiste aux champs manquants", () => {
@@ -73,4 +95,19 @@ test("calculateMonth résiste aux champs manquants", () => {
   assert.equal(result.income, 0);
   assert.equal(result.expensesNet, 0);
   assert.equal(result.totalCharges, 800 + 120 + 15 + 100 + 250);
+});
+
+test("expenseNetValue déduit les montants remboursés", () => {
+  assert.equal(
+    expenseNetValue({ amount: 75, isRefund: true }),
+    -75,
+  );
+  assert.equal(
+    expenseNetValue({ amount: 100, refund: 25 }),
+    75,
+  );
+  assert.equal(
+    expenseNetValue({ amount: 0, refund: 40 }),
+    -40,
+  );
 });

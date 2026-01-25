@@ -13,7 +13,7 @@ function calculateMonth(month) {
   const variable = sum(month?.variableCharges);
   const expenses = Array.isArray(month?.expenses) ? month.expenses : [];
   const expensesNet = expenses.reduce(
-    (total, expense) => total + (toAmount(expense.amount) - toAmount(expense.refund)),
+    (total, expense) => total + expenseNetValue(expense),
     0,
   );
 
@@ -31,10 +31,20 @@ function calculateMonth(month) {
   return { income, totalCharges, expensesNet, balance };
 }
 
+function expenseNetValue(expense = {}) {
+  const amount = toAmount(expense.amount);
+  if (expense.isRefund === true) return -amount;
+
+  const refund = toAmount(expense.refund);
+  if (!amount && refund > 0) return -refund;
+  return amount - refund;
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     toAmount,
     sum,
     calculateMonth,
+    expenseNetValue,
   };
 }

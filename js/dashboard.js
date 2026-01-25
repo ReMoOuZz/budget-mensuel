@@ -430,29 +430,27 @@ function initExpenseForm() {
 
     const label = document.getElementById("expLabel").value.trim();
     const amount = sanitizeAmount(document.getElementById("expAmount").value);
-    const refund = sanitizeAmount(
-      document.getElementById("expRefund").value || 0,
-    );
+    const isRefund = document.getElementById("expIsRefund").checked;
     const dateISO = document.getElementById("expDate").value;
     const importance = document.getElementById("expImportance").value;
 
     if (!label) return toast("Objet obligatoire.", "warn");
     if (amount < 0) return toast("Montant invalide.", "warn");
     if (!isValidDate(dateISO)) return toast("Date invalide.", "warn");
-    if (refund < 0) return toast("Remboursement invalide.", "warn");
 
     const month = appData.months[currentMonthKey];
     month.expenses.push({
       id: crypto.randomUUID(),
       label,
       amount,
-      refund,
       dateISO,
       importance,
+      isRefund,
     });
 
     form.reset();
     ensureTodayDefault();
+    document.getElementById("expIsRefund").checked = false;
     toast("Dépense ajoutée.");
     render();
   });
@@ -460,13 +458,13 @@ function initExpenseForm() {
   // Click tri sur headers (simple + efficace)
   const headers = document.querySelectorAll("table thead th");
   if (headers?.length) {
-    // Date, Objet, Montant, Remb., Importance, (actions)
+    // Date, Type, Objet, Montant, Importance, (actions)
     headers[0].style.cursor = "pointer";
-    headers[2].style.cursor = "pointer";
+    headers[3].style.cursor = "pointer";
     headers[4].style.cursor = "pointer";
 
     headers[0].addEventListener("click", () => setSort("dateISO"));
-    headers[2].addEventListener("click", () => setSort("amount"));
+    headers[3].addEventListener("click", () => setSort("amount"));
     headers[4].addEventListener("click", () => setSort("importance"));
   }
 }
@@ -491,12 +489,17 @@ function renderExpenses() {
   sorted.forEach((e) => {
     const tr = document.createElement("tr");
     tr.className = importanceClass(e.importance);
+    const descriptor = describeExpense(e);
+    const amountText = `${descriptor.type === "refund" ? "−" : "+"}${money(descriptor.display)}`;
+    const amountClass = `expense-amount ${descriptor.type === "refund" ? "refund" : "expense"}`;
+    const flagIcon = descriptor.type === "refund" ? "↗" : "↘";
+    const flagClass = `flag ${descriptor.type === "refund" ? "refund" : "expense"}`;
 
     tr.innerHTML = `
       <td>${escapeHtml(e.dateISO)}</td>
+      <td class="expense-flag"><span class="${flagClass}">${flagIcon}</span></td>
       <td>${escapeHtml(e.label)}</td>
-      <td>${money(e.amount)}</td>
-      <td>${money(e.refund)}</td>
+      <td class="${amountClass}">${amountText} €</td>
       <td>${escapeHtml(e.importance)}</td>
       <td><button class="danger">Supprimer</button></td>
     `;
@@ -516,7 +519,12 @@ function compareExpense(a, b) {
   const key = expenseSort.key;
 
   if (key === "dateISO") return a.dateISO.localeCompare(b.dateISO) * dir;
-  if (key === "amount") return (Number(a.amount) - Number(b.amount)) * dir;
+  if (key === "amount") {
+    return (
+      (describeExpense(a).net - describeExpense(b).net) *
+      dir
+    );
+  }
 
   if (key === "importance") {
     const rank = { faible: 1, modéré: 2, important: 3 };
@@ -540,6 +548,46 @@ function sanitizeAmount(v) {
   const n = Number(v);
   if (Number.isNaN(n) || !Number.isFinite(n)) return 0;
   return Math.max(0, n);
+}
+
+function describeExpense(expense) {
+  const amount = toNumber(expense.amount);
+  if (expense.isRefund === true) {
+    return {
+      net: -amount,
+      display: amount,
+      type: "refund",
+    };
+  }
+
+  const legacyRefund = toNumber(expense.refund);
+  if (expense.isRefund === false) {
+    return {
+      net: amount - legacyRefund,
+      display: amount,
+      type: amount - legacyRefund < 0 ? "refund" : "expense",
+    };
+  }
+
+  if (!amount && legacyRefund > 0) {
+    return {
+      net: -legacyRefund,
+      display: legacyRefund,
+      type: "refund",
+    };
+  }
+
+  const net = amount - legacyRefund;
+  return {
+    net,
+    display: net < 0 ? Math.abs(net) : amount || Math.abs(net),
+    type: net < 0 ? "refund" : "expense",
+  };
+}
+
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function isValidDate(dateStr) {

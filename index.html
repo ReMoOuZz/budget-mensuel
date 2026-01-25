@@ -117,12 +117,10 @@
             placeholder="Montant"
             id="expAmount"
           />
-          <input
-            type="number"
-            min="0"
-            placeholder="Remboursement"
-            id="expRefund"
-          />
+          <label class="checkbox-field" for="expIsRefund">
+            <input type="checkbox" id="expIsRefund" />
+            Remboursement
+          </label>
           <input type="date" id="expDate" />
           <select id="expImportance">
             <option value="faible">Faible</option>
@@ -137,9 +135,9 @@
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Type</th>
                 <th>Objet</th>
                 <th>Montant</th>
-                <th>Remb.</th>
                 <th>Importance</th>
                 <th></th>
               </tr>
