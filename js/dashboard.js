@@ -9,7 +9,7 @@ const DEFAULT_INCOME_PLACEHOLDERS = [
 
 const PIE_CHART_COLORS = {
   global: ["#ff7b8f", "#6fe7c8", "#a883ff"],
-  balance: ["#6fe7c8", "#ff7b8f"],
+  balance: ["#ff7b8f", "#5bfab5", "#ffb347"],
   savings: ["#a883ff", "#6fe7c8", "#ed51ff", "#ff7b8f", "#ffb347"],
 };
 
@@ -70,7 +70,7 @@ const PIE_OPTIONS = {
   cutout: "60%",
 };
 
-const MAX_HISTORY_ENTRIES = 3;
+const MAX_HISTORY_ENTRIES = 1;
 const pieCharts = {
   global: null,
   balance: null,
@@ -156,25 +156,12 @@ function rebuildMonthSelectorOptions() {
 
 function initMonthButtons() {
   document.getElementById("newMonthBtn").addEventListener("click", () => {
-    const newKey = getYYYYMM(new Date());
-    if (appData.months[newKey]) {
-      // si le mois courant existe déjà, on crée le mois suivant
-      const nextKey = addMonths(newKey, 1);
-      createMonthFromTemplatesWithCarryOver(nextKey);
-      switchToMonth(nextKey);
-      return;
-    }
-    createMonthFromTemplatesWithCarryOver(newKey);
-    switchToMonth(newKey);
-  });
-
-  document.getElementById("duplicateMonthBtn").addEventListener("click", () => {
     const nextKey = addMonths(currentMonthKey, 1);
     if (appData.months[nextKey]) {
       toast(`Le mois ${nextKey} existe déjà.`, "warn");
       return;
     }
-    duplicateMonth(currentMonthKey, nextKey);
+    createMonthFromTemplatesWithCarryOver(nextKey);
     switchToMonth(nextKey);
   });
 }
@@ -223,6 +210,33 @@ function switchToMonth(key) {
   render();
 }
 
+function buildResetIncomes(source = []) {
+  if (Array.isArray(source) && source.length) {
+    return source.map((income, index) => ({
+      id: crypto.randomUUID(),
+      label: income.label || "",
+      amount: 0,
+      placeholder: income.placeholder || getIncomePlaceholderText(index),
+    }));
+  }
+
+  return DEFAULT_INCOME_PLACEHOLDERS.map((placeholder) => ({
+    id: crypto.randomUUID(),
+    label: "",
+    amount: 0,
+    placeholder,
+  }));
+}
+
+function createBlankMonth(carryOver, incomeTemplate = []) {
+  return {
+    incomes: buildResetIncomes(incomeTemplate),
+    variableCharges: [],
+    expenses: [],
+    carryOver,
+  };
+}
+
 function createMonthFromTemplatesWithCarryOver(key) {
   // 1) carryOver = pnl (balance) du mois précédent si dispo
   const prevKey = getPreviousMonthKey(key);
@@ -239,56 +253,11 @@ function createMonthFromTemplatesWithCarryOver(key) {
     }
   }
 
-  // 2) Copier les templates settings vers le mois (option : garder modifiable ensuite)
-  // Ici: on copie les revenus de base + on laisse variableCharges vide + expenses vide
-  const defaultIncomes = DEFAULT_INCOME_PLACEHOLDERS.map((placeholder) => ({
-    id: crypto.randomUUID(),
-    label: "",
-    amount: 0,
-    placeholder,
-  }));
-
-  // Si un mois précédent existe, on peut copier ses revenus (plus réaliste)
-  if (appData.months[prevKey]?.incomes?.length) {
-    appData.months[key] = {
-      incomes: deepClone(appData.months[prevKey].incomes),
-      variableCharges: [],
-      expenses: [],
-      carryOver,
-    };
-  } else {
-    appData.months[key] = {
-      incomes: defaultIncomes,
-      variableCharges: [],
-      expenses: [],
-      carryOver,
-    };
-  }
+  const previousIncomes = appData.months[prevKey]?.incomes || [];
+  appData.months[key] = createBlankMonth(carryOver, previousIncomes);
 
   saveData();
   toast(`Mois créé : ${key} (report: ${carryOver}€)`);
-}
-
-function duplicateMonth(fromKey, toKey) {
-  const source = appData.months[fromKey];
-  if (!source) return;
-
-  // Report basé sur le PnL du mois source (réaliste)
-  const carryOver = calculateMonth(source).balance;
-
-  appData.months[toKey] = {
-    incomes: deepClone(source.incomes),
-    variableCharges: deepClone(source.variableCharges),
-    expenses: deepClone(source.expenses),
-    carryOver,
-  };
-
-  saveData();
-  toast(`Mois dupliqué : ${fromKey} → ${toKey}`);
-}
-
-function deepClone(obj) {
-  return JSON.parse(JSON.stringify(obj));
 }
 
 /* -----------------------------
@@ -727,11 +696,27 @@ function updateGlobalSpendingChart(month) {
 
 function updateIncomeVsChargesChart(month) {
   const calc = calculateMonth(month);
-  const totalCharges = Math.max(calc.totalCharges, 0);
   const totalIncome = Math.max(calc.income, 0);
+  const totalCharges = Math.max(calc.totalCharges, 0);
+  const chargesWithinIncome = Math.min(totalCharges, totalIncome);
+  const remainingIncome = Math.max(totalIncome - totalCharges, 0);
+  const shortage = Math.max(totalCharges - totalIncome, 0);
 
-  const labels = ["Charges", "Revenus"];
-  const data = [totalCharges, totalIncome];
+  const labels = [];
+  const data = [];
+
+  labels.push("Charges");
+  data.push(chargesWithinIncome);
+
+  if (remainingIncome > 0) {
+    labels.push("Reste à vivre");
+    data.push(remainingIncome);
+  }
+
+  if (shortage > 0) {
+    labels.push("Dépassement");
+    data.push(shortage);
+  }
 
   updatePieChart(
     "balance",

@@ -33,7 +33,6 @@
       </div>
       <select id="monthSelector"></select>
       <button id="newMonthBtn">Nouveau mois</button>
-      <button id="duplicateMonthBtn">Dupliquer</button>
     </header>
 
     <main class="dashboard">
@@ -105,14 +104,14 @@
           <section class="card history-card">
             <div class="history-header">
               <h2>Reports des derniers mois</h2>
-              <p>Cartographie rapide des 3 derniers mois clôturés.</p>
+              <p>Cartographie rapide du dernier mois clôturés.</p>
               <button
                 type="button"
                 class="carry-btn"
                 onclick="adjustCarryOver()"
                 title="Ajuster le report courant"
               >
-                Ajuster le report
+                + Ajuster le report
               </button>
             </div>
             <div id="previousReports" class="history-list"></div>
@@ -124,7 +123,7 @@
             <h2>Revenus</h2>
           </div>
           <div id="incomeList"></div>
-          <button class="primary" onclick="addIncome()">Ajouter revenu</button>
+          <button class="primary" onclick="addIncome()">+ Ajouter revenu</button>
         </section>
 
         <section class="card expenses-card">
@@ -155,7 +154,7 @@
               <option value="modéré">Modéré</option>
               <option value="important">Important</option>
             </select>
-            <button class="primary">Ajouter</button>
+            <button class="primary">+ Ajouter</button>
           </form>
 
           <div class="table-wrapper">
@@ -255,7 +254,7 @@
             </div>
             <div id="variableChargesList"></div>
             <button class="primary" onclick="addVariableCharge()">
-              Ajouter charge
+              + Ajouter charge
             </button>
           </section>
         </div>
