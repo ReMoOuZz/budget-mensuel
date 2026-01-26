@@ -7,11 +7,82 @@ const DEFAULT_INCOME_PLACEHOLDERS = [
   "Autres revenus",
 ];
 
+const PIE_CHART_COLORS = {
+  global: ["#ff7b8f", "#6fe7c8", "#a883ff"],
+  balance: ["#6fe7c8", "#ff7b8f"],
+  savings: ["#a883ff", "#6fe7c8", "#ed51ff", "#ff7b8f", "#ffb347"],
+};
+
+const PIE_LABEL_COLOR = "#f6f2ff";
+
+const DOUGHNUT_LABELS_PLUGIN = {
+  id: "doughnutLabels",
+  afterDatasetsDraw(chart) {
+    if (chart.config.type !== "doughnut") return;
+    const { ctx, data } = chart;
+    const dataset = data.datasets[0];
+    if (!dataset) return;
+    const metas = chart.getDatasetMeta(0);
+    ctx.save();
+    ctx.fillStyle = PIE_LABEL_COLOR;
+    ctx.font = "12px Inter, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    metas.data.forEach((arc, index) => {
+      const value = dataset.data[index];
+      if (!value) return;
+      const label = data.labels[index];
+      if (!label) return;
+      const { x, y } = arc.tooltipPosition();
+      const text = label.length > 14 ? `${label.slice(0, 11)}…` : label;
+      ctx.fillText(text, x, y);
+    });
+    ctx.restore();
+  },
+};
+
+if (typeof Chart !== "undefined" && Chart.register) {
+  Chart.register(DOUGHNUT_LABELS_PLUGIN);
+}
+
+const PIE_OPTIONS = {
+  responsive: true,
+  plugins: {
+    legend: {
+      position: "bottom",
+      labels: {
+        color: "#f6f2ff",
+      },
+    },
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          const label = context.label || "";
+          const raw = Number(context.raw) || 0;
+          return `${label}: ${money(raw)} €`;
+        },
+      },
+    },
+  },
+  animation: {
+    duration: 350,
+  },
+  cutout: "60%",
+};
+
+const MAX_HISTORY_ENTRIES = 3;
+const pieCharts = {
+  global: null,
+  balance: null,
+  savings: null,
+};
+
 let currentMonthKey = getInitialMonthKey();
 
 document.addEventListener("DOMContentLoaded", () => {
   initMonthSelector();
   initMonthButtons();
+  initTabs();
   initExpenseForm();
   ensureTodayDefault();
   render();
@@ -105,6 +176,43 @@ function initMonthButtons() {
     }
     duplicateMonth(currentMonthKey, nextKey);
     switchToMonth(nextKey);
+  });
+}
+
+function initTabs() {
+  const tabs = document.querySelectorAll(".tab[data-tab-target]");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tabTarget;
+      if (target) {
+        activateTab(target);
+      }
+    });
+  });
+
+  const defaultTab =
+    document.querySelector(".tab.is-active")?.dataset.tabTarget || "check";
+  activateTab(defaultTab);
+}
+
+function activateTab(targetKey) {
+  const tabs = document.querySelectorAll(".tab[data-tab-target]");
+  tabs.forEach((tab) => {
+    const isActive = tab.dataset.tabTarget === targetKey;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+    if (isActive) {
+      tab.removeAttribute("tabindex");
+    } else {
+      tab.setAttribute("tabindex", "-1");
+    }
+  });
+
+  const panels = document.querySelectorAll("[data-tab-panel]");
+  panels.forEach((panel) => {
+    const isActive = panel.dataset.tabPanel === targetKey;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
   });
 }
 
@@ -203,6 +311,8 @@ function render() {
   renderSettingsSections();
   renderVariableCharges();
   renderExpenses();
+  renderHistory();
+  updateCharts(month);
 
   saveData();
 }
@@ -385,6 +495,7 @@ function renderSettingsSection(list, config) {
 function renderVariableCharges() {
   const month = appData.months[currentMonthKey];
   const container = document.getElementById("variableChargesList");
+  if (!container) return;
   container.innerHTML = "";
 
   month.variableCharges.forEach((ch) => {
@@ -422,6 +533,9 @@ function renderVariableCharges() {
 
     container.appendChild(row);
   });
+
+  const total = sum(month.variableCharges);
+  setText("variableChargesTotal", money(total));
 }
 
 window.addVariableCharge = function addVariableCharge() {
@@ -533,6 +647,195 @@ function renderExpenses() {
 
     tbody.appendChild(tr);
   });
+}
+
+function renderHistory() {
+  const container = document.getElementById("previousReports");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const historyKeys = getPreviousMonthKeys(currentMonthKey, MAX_HISTORY_ENTRIES);
+  if (!historyKeys.length) {
+    const empty = document.createElement("p");
+    empty.className = "chart-empty";
+    empty.textContent =
+      "Aucun mois précédent n'est disponible pour l'instant.";
+    container.appendChild(empty);
+    return;
+  }
+
+  historyKeys.forEach((key) => {
+    const month = appData.months[key];
+    const calc = calculateMonth(month);
+    const item = document.createElement("div");
+    item.className = `history-item ${calc.balance >= 0 ? "positive" : "negative"}`;
+    item.innerHTML = `
+      <span class="label">${escapeHtml(formatMonthLabel(key))}</span>
+      <span class="value">${money(calc.balance)} €</span>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function getPreviousMonthKeys(currentKey, limit = MAX_HISTORY_ENTRIES) {
+  const keys = Object.keys(appData.months || {});
+  const previous = keys
+    .filter((key) => key < currentKey)
+    .sort();
+  return previous.slice(-limit).reverse();
+}
+
+function formatMonthLabel(key) {
+  const [year, month] = key.split("-").map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return key;
+  const date = new Date(year, (month || 1) - 1, 1);
+  return date.toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
+}
+
+/* -----------------------------
+   Charts
+------------------------------ */
+
+function updateCharts(month) {
+  updateGlobalSpendingChart(month);
+  updateIncomeVsChargesChart(month);
+  updateSavingsChart();
+}
+
+function updateGlobalSpendingChart(month) {
+  const settings = appData.settings || {};
+  const chargesTotal =
+    sum(settings.fixedCharges) +
+    sum(settings.subscriptions) +
+    sum(settings.credits) +
+    sum(month.variableCharges);
+  const savingsTotal = sum(settings.savings);
+  const expensesTotal = getPositiveExpensesTotal(month.expenses);
+
+  const labels = ["Charges", "Épargne", "Dépenses courantes"];
+  const data = [chargesTotal, savingsTotal, expensesTotal];
+
+  updatePieChart(
+    "global",
+    "globalSpendingPie",
+    "globalSpendingEmpty",
+    labels,
+    data,
+    PIE_CHART_COLORS.global,
+  );
+}
+
+function updateIncomeVsChargesChart(month) {
+  const calc = calculateMonth(month);
+  const totalCharges = Math.max(calc.totalCharges, 0);
+  const totalIncome = Math.max(calc.income, 0);
+
+  const labels = ["Charges", "Revenus"];
+  const data = [totalCharges, totalIncome];
+
+  updatePieChart(
+    "balance",
+    "incomeChargesPie",
+    "incomeChargesEmpty",
+    labels,
+    data,
+    PIE_CHART_COLORS.balance,
+  );
+}
+
+function updateSavingsChart() {
+  const savings = Array.isArray(appData.settings?.savings)
+    ? appData.settings.savings
+    : [];
+  const labels = savings.map((entry) => entry.label || "Épargne");
+  const data = savings.map((entry) => toNumber(entry.amount));
+
+  updatePieChart(
+    "savings",
+    "savingsPie",
+    "savingsChartEmpty",
+    labels,
+    data,
+    PIE_CHART_COLORS.savings,
+  );
+}
+
+function getPositiveExpensesTotal(expenses) {
+  if (!Array.isArray(expenses)) return 0;
+  return expenses.reduce((total, expense) => {
+    const value = expenseNetValue(expense);
+    return value > 0 ? total + value : total;
+  }, 0);
+}
+
+function updatePieChart(key, canvasId, emptyId, labels, data, baseColors) {
+  const normalizedData = data.map((value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Number(n.toFixed(2)) : 0;
+  });
+  const hasData = normalizedData.some((value) => value > 0);
+  toggleChartEmpty(canvasId, emptyId, hasData);
+
+  if (!hasData || typeof Chart === "undefined") {
+    return;
+  }
+
+  const chart = ensurePieChart(key, canvasId);
+  if (!chart) return;
+
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = normalizedData;
+  chart.data.datasets[0].backgroundColor = buildColorSet(
+    baseColors,
+    normalizedData.length,
+  );
+  chart.update();
+}
+
+function ensurePieChart(key, canvasId) {
+  if (pieCharts[key]) return pieCharts[key];
+  if (typeof Chart === "undefined") return null;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const ctx = canvas.getContext("2d");
+  pieCharts[key] = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: [],
+      datasets: [
+        {
+          data: [],
+          backgroundColor: [],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: PIE_OPTIONS,
+  });
+  return pieCharts[key];
+}
+
+function buildColorSet(baseColors = [], length = 0) {
+  if (!length) return [];
+  if (!Array.isArray(baseColors) || !baseColors.length) {
+    return Array.from({ length }, () => "#a883ff");
+  }
+  const colors = [];
+  for (let i = 0; i < length; i += 1) {
+    colors.push(baseColors[i % baseColors.length]);
+  }
+  return colors;
+}
+
+function toggleChartEmpty(canvasId, emptyId, hasData) {
+  const canvas = document.getElementById(canvasId);
+  if (canvas) {
+    canvas.style.display = hasData ? "block" : "none";
+  }
+  const empty = document.getElementById(emptyId);
+  if (empty) {
+    empty.hidden = hasData;
+  }
 }
 
 function compareExpense(a, b) {

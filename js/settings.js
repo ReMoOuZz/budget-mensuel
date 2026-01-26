@@ -30,9 +30,19 @@ function buildRow(key, item) {
   const row = document.createElement("div");
   row.className = "row row-manage";
 
-  const labelSpan = document.createElement("span");
-  labelSpan.className = "label";
-  labelSpan.textContent = item.label || "";
+  const labelInput = document.createElement("input");
+  labelInput.className = "text";
+  labelInput.type = "text";
+  labelInput.placeholder = "Libellé";
+  labelInput.value = item.label || "";
+
+  labelInput.addEventListener("blur", () => updateLabel(item, labelInput));
+  labelInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      labelInput.blur();
+    }
+  });
 
   const amountInput = document.createElement("input");
   amountInput.className = "num";
@@ -49,10 +59,19 @@ function buildRow(key, item) {
     toast("Montant mis à jour.");
   });
 
-  row.appendChild(labelSpan);
+  row.appendChild(labelInput);
   row.appendChild(amountInput);
 
   return row;
+}
+
+function updateLabel(item, input) {
+  const newValue = input.value.trim();
+  if (item.label === newValue) return;
+  item.label = newValue;
+  input.value = newValue;
+  persist();
+  toast("Libellé mis à jour.");
 }
 
 function getSettingsList(key) {

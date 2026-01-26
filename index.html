@@ -22,11 +22,7 @@
       content="Centralisez vos revenus, charges fixes, abonnements et dépenses quotidiennes dans une interface unique."
     />
     <meta property="og:image" content="images/icon.png" />
-    <link
-      rel="icon"
-      type="image/png"
-      href="images/icon.png"
-    />
+    <link rel="icon" type="image/png" href="images/icon.png" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body class="theme-dark">
@@ -36,140 +32,272 @@
         <h1>Budgify</h1>
       </div>
       <select id="monthSelector"></select>
-      <button id="newMonthBtn">➕ Nouveau mois</button>
-      <button id="duplicateMonthBtn">📄 Dupliquer</button>
-      <a href="settings.html">⚙️ Ajuster montants</a>
+      <button id="newMonthBtn">Nouveau mois</button>
+      <button id="duplicateMonthBtn">Dupliquer</button>
     </header>
 
     <main class="dashboard">
-      <section class="card summary-card">
-        <div class="summary-grid">
-          <div>
-            <p class="label">Report précédent</p>
-            <p class="value"><span id="carryOver"></span> €</p>
+      <nav class="tabs" role="tablist" aria-label="Navigation tableau de bord">
+        <button
+          type="button"
+          class="tab is-active"
+          role="tab"
+          aria-selected="true"
+          id="tab-btn-check"
+          aria-controls="panel-check"
+          data-tab-target="check"
+        >
+          Check
+        </button>
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          id="tab-btn-charges"
+          aria-controls="panel-charges"
+          data-tab-target="charges"
+        >
+          Charges
+        </button>
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          id="tab-btn-savings"
+          aria-controls="panel-savings"
+          data-tab-target="savings"
+        >
+          Épargne
+        </button>
+      </nav>
+
+      <section
+        class="tab-panel is-active"
+        id="panel-check"
+        role="tabpanel"
+        aria-labelledby="tab-btn-check"
+        data-tab-panel="check"
+      >
+        <div class="check-grid">
+          <section class="card summary-card">
+            <div class="summary-grid">
+              <div>
+                <p class="label">Report précédent</p>
+                <p class="value"><span id="carryOver"></span> €</p>
+              </div>
+              <div>
+                <p class="label">Total revenus</p>
+                <p class="value accent"><span id="totalIncome"></span> €</p>
+              </div>
+              <div>
+                <p class="label">Total charges</p>
+                <p class="value"><span id="totalCharges"></span> €</p>
+              </div>
+              <div>
+                <p class="label">Reste à vivre</p>
+                <p class="value highlight"><span id="balance"></span> €</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="card history-card">
+            <div class="history-header">
+              <h2>Reports des derniers mois</h2>
+              <p>Cartographie rapide des 3 derniers mois clôturés.</p>
+              <button
+                type="button"
+                class="carry-btn"
+                onclick="adjustCarryOver()"
+                title="Ajuster le report courant"
+              >
+                Ajuster le report
+              </button>
+            </div>
+            <div id="previousReports" class="history-list"></div>
+          </section>
+        </div>
+
+        <section class="card incomes-card">
+          <div class="incomes-header">
+            <h2>Revenus</h2>
           </div>
-          <div>
-            <p class="label">Total revenus</p>
-            <p class="value accent"><span id="totalIncome"></span> €</p>
+          <div id="incomeList"></div>
+          <button class="primary" onclick="addIncome()">Ajouter revenu</button>
+        </section>
+
+        <section class="card expenses-card">
+          <div class="expenses-header">
+            <h2>Dépenses courantes</h2>
+            <div class="totals">
+              Dépenses nettes : <span id="expensesNet"></span> €
+            </div>
           </div>
-          <div>
-            <p class="label">Total charges</p>
-            <p class="value"><span id="totalCharges"></span> €</p>
+
+          <form id="expenseForm" class="expense-form">
+            <input required placeholder="Objet" id="expLabel" />
+            <input
+              required
+              type="text"
+              inputmode="decimal"
+              pattern="[0-9]*[.,]?[0-9]*"
+              placeholder="Montant"
+              id="expAmount"
+            />
+            <label class="checkbox-field" for="expIsRefund">
+              <input type="checkbox" id="expIsRefund" />
+              Remboursement
+            </label>
+            <input type="date" id="expDate" />
+            <select id="expImportance">
+              <option value="faible">Faible</option>
+              <option value="modéré">Modéré</option>
+              <option value="important">Important</option>
+            </select>
+            <button class="primary">Ajouter</button>
+          </form>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Objet</th>
+                  <th>Montant</th>
+                  <th>Importance</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="expensesTable"></tbody>
+            </table>
           </div>
-          <div>
-            <p class="label">Reste à vivre</p>
-            <p class="value highlight"><span id="balance"></span> €</p>
+        </section>
+
+        <section class="card chart-card chart-card-duo">
+          <div class="chart-card-header">
+            <h2>Focus Check</h2>
           </div>
+          <div class="chart-duo">
+            <div class="chart-unit">
+              <h3>Répartition globale</h3>
+              <div class="chart-wrapper">
+                <canvas
+                  id="globalSpendingPie"
+                  width="260"
+                  height="260"
+                  aria-label="Répartition globale charges/épargne/dépenses"
+                ></canvas>
+                <p id="globalSpendingEmpty" class="chart-empty">
+                  Ajoutez des données pour visualiser vos postes principaux.
+                </p>
+              </div>
+            </div>
+            <div class="chart-unit">
+              <h3>Revenus vs Charges</h3>
+              <div class="chart-wrapper">
+                <canvas
+                  id="incomeChargesPie"
+                  width="260"
+                  height="260"
+                  aria-label="Comparaison revenus et charges"
+                ></canvas>
+                <p id="incomeChargesEmpty" class="chart-empty">
+                  Complétez vos revenus & dépenses pour voir le ratio.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section
+        class="tab-panel"
+        id="panel-charges"
+        role="tabpanel"
+        aria-labelledby="tab-btn-charges"
+        data-tab-panel="charges"
+        hidden
+      >
+        <div class="charges-toolbar">
+          <a class="settings-link" href="settings.html">Ajuster montants</a>
+        </div>
+        <div class="grid recurring-grid">
+          <section class="card recurring-card">
+            <h2>Charges fixes</h2>
+            <div id="fixedChargesList" class="fixed-list"></div>
+            <div class="totals">
+              Total : <span id="fixedChargesTotal"></span> €
+            </div>
+          </section>
+
+          <section class="card recurring-card">
+            <h2>Abonnements</h2>
+            <div id="subscriptionsList" class="fixed-list"></div>
+            <div class="totals">
+              Total : <span id="subscriptionsTotal"></span> €
+            </div>
+          </section>
+
+          <section class="card recurring-card">
+            <h2>Crédits</h2>
+            <div id="creditsList" class="fixed-list"></div>
+            <div class="totals">Total : <span id="creditsTotal"></span> €</div>
+          </section>
+
+          <section class="card recurring-card wide">
+            <div class="recurring-card-header">
+              <h2>Charges variables</h2>
+              <div class="totals">
+                Total : <span id="variableChargesTotal"></span> €
+              </div>
+            </div>
+            <div id="variableChargesList"></div>
+            <button class="primary" onclick="addVariableCharge()">
+              Ajouter charge
+            </button>
+          </section>
         </div>
       </section>
 
-      <section class="card incomes-card">
-        <div class="incomes-header">
-          <h2>💰 Revenus</h2>
-          <button
-            type="button"
-            class="carry-btn"
-            onclick="adjustCarryOver()"
-            title="Ajouter une plus ou moins-value au calcul"
-          >
-            ⚖️ Report +/-
-          </button>
-        </div>
-        <div id="incomeList"></div>
-        <button class="primary" onclick="addIncome()">➕ Ajouter revenu</button>
-      </section>
+      <section
+        class="tab-panel"
+        id="panel-savings"
+        role="tabpanel"
+        aria-labelledby="tab-btn-savings"
+        data-tab-panel="savings"
+        hidden
+      >
+        <div class="savings-grid">
+          <section class="card recurring-card savings-card">
+            <h2>Épargne programmée</h2>
+            <div id="savingsList" class="fixed-list"></div>
+            <div class="totals">Total : <span id="savingsTotal"></span> €</div>
+          </section>
 
-      <div class="grid recurring-grid">
-        <section class="card recurring-card">
-          <h2>🏠 Charges fixes</h2>
-          <div id="fixedChargesList" class="fixed-list"></div>
-          <div class="totals">
-            Total : <span id="fixedChargesTotal"></span> €
-          </div>
-        </section>
-
-        <section class="card recurring-card">
-          <h2>📺 Abonnements</h2>
-          <div id="subscriptionsList" class="fixed-list"></div>
-          <div class="totals">
-            Total : <span id="subscriptionsTotal"></span> €
-          </div>
-        </section>
-
-        <section class="card recurring-card">
-          <h2>💾 Épargne programmée</h2>
-          <div id="savingsList" class="fixed-list"></div>
-          <div class="totals">
-            Total : <span id="savingsTotal"></span> €
-          </div>
-        </section>
-
-        <section class="card recurring-card">
-          <h2>🏦 Crédits</h2>
-          <div id="creditsList" class="fixed-list"></div>
-          <div class="totals">
-            Total : <span id="creditsTotal"></span> €
-          </div>
-        </section>
-
-        <section class="card recurring-card wide">
-          <h2>📉 Charges variables</h2>
-          <div id="variableChargesList"></div>
-          <button class="primary" onclick="addVariableCharge()">
-            ➕ Ajouter charge
-          </button>
-        </section>
-      </div>
-
-      <section class="card expenses-card">
-        <div class="expenses-header">
-          <h2>🧾 Dépenses courantes</h2>
-          <div class="totals">
-            Dépenses nettes : <span id="expensesNet"></span> €
-          </div>
-        </div>
-
-        <form id="expenseForm" class="expense-form">
-          <input required placeholder="Objet" id="expLabel" />
-          <input
-            required
-            type="text"
-            inputmode="decimal"
-            pattern="[0-9]*[.,]?[0-9]*"
-            placeholder="Montant"
-            id="expAmount"
-          />
-          <label class="checkbox-field" for="expIsRefund">
-            <input type="checkbox" id="expIsRefund" />
-            Remboursement
-          </label>
-          <input type="date" id="expDate" />
-          <select id="expImportance">
-            <option value="faible">Faible</option>
-            <option value="modéré">Modéré</option>
-            <option value="important">Important</option>
-          </select>
-          <button class="primary">Ajouter</button>
-        </form>
-
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Objet</th>
-                <th>Montant</th>
-                <th>Importance</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="expensesTable"></tbody>
-          </table>
+          <section class="card chart-card">
+            <div class="chart-card-header">
+              <h2>Focus épargne</h2>
+            </div>
+            <div class="chart-wrapper">
+              <canvas
+                id="savingsPie"
+                width="260"
+                height="260"
+                aria-label="Répartition des épargnes"
+              ></canvas>
+              <p id="savingsChartEmpty" class="chart-empty">
+                Ajoutez ou ajustez vos virements d'épargne pour visualiser la
+                répartition.
+              </p>
+            </div>
+          </section>
         </div>
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/store.js"></script>
     <script src="js/calculations.js"></script>
     <script src="js/dashboard.js"></script>
