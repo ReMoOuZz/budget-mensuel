@@ -104,12 +104,9 @@ document.addEventListener("DOMContentLoaded", () => {
 ------------------------------ */
 
 function getInitialMonthKey() {
-  // Si le mois courant existe, on le prend, sinon on prend le dernier mois existant.
-  const nowKey = getYYYYMM(new Date());
-  if (appData.months[nowKey]) return nowKey;
-
-  const keys = Object.keys(appData.months).sort();
-  return keys[keys.length - 1] || nowKey;
+  const keys = Object.keys(appData.months || {}).sort();
+  if (keys.length) return keys[keys.length - 1];
+  return getYYYYMM(new Date());
 }
 
 function getYYYYMM(date) {
@@ -320,6 +317,11 @@ function money(value) {
   return moneyFormatter.format(amount);
 }
 
+function formatSavingsDisplay(value) {
+  const amount = Number(value) || 0;
+  return money(amount);
+}
+
 /* -----------------------------
    Incomes CRUD
 ------------------------------ */
@@ -497,9 +499,15 @@ function renderSettingsSection(list, config, month) {
         config.key === "savings"
           ? getSavingsCategoryTotal(month, item.id)
           : toNumber(item.amount);
+      const amountClasses = ["amount"];
+      const amountText =
+        config.key === "savings"
+          ? `${formatSavingsDisplay(amountValue)} €`
+          : `${money(amountValue)} €`;
+      if (config.key === "savings") amountClasses.push("savings-amount");
       row.innerHTML = `
         <span class="label">${escapeHtml(item.label)}</span>
-        <span class="amount">${money(amountValue)} €</span>
+        <span class="${amountClasses.join(" ")}">${amountText}</span>
       `;
 
       if (isToggleable) {
@@ -528,7 +536,14 @@ function renderSettingsSection(list, config, month) {
   if (config.totalId) {
     const totalValue =
       config.key === "savings" ? getSavingsTotal(month) : sum(list);
-    setText(config.totalId, money(totalValue));
+    const totalText =
+      config.key === "savings"
+        ? formatSavingsDisplay(totalValue)
+        : money(totalValue);
+    setText(config.totalId, totalText);
+    if (config.key === "savings") {
+      document.getElementById(config.totalId)?.classList.add("savings-amount");
+    }
   }
 }
 
@@ -696,8 +711,13 @@ function renderSavingsCategories(month) {
   }
 
   const total = getSavingsTotal(month);
-  setText("savingsMonthTotal", money(total));
-  setText("savingsTotal", money(total));
+  const monthTotalEl = document.getElementById("savingsMonthTotal");
+  if (monthTotalEl) {
+    monthTotalEl.textContent = formatSavingsDisplay(total);
+    monthTotalEl.classList.add("savings-amount");
+  }
+  setText("savingsTotal", formatSavingsDisplay(total));
+  document.getElementById("savingsTotal")?.classList.add("savings-amount");
 }
 
 function buildSavingsCategoryCard(category, month) {
@@ -761,7 +781,7 @@ function buildSavingsCategoryCard(category, month) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${escapeHtml(entry.dateISO || "—")}</td>
-        <td class="expense-amount expense">−${money(entry.amount)} €</td>
+        <td class="savings-amount">${formatSavingsDisplay(entry.amount)} €</td>
         <td><button class="danger">Supprimer</button></td>
       `;
       tr.querySelector("button").addEventListener("click", () => {
@@ -773,7 +793,8 @@ function buildSavingsCategoryCard(category, month) {
 
   const subtotal = document.createElement("p");
   subtotal.className = "savings-month-total";
-  subtotal.textContent = `Total catégorie : ${money(getSavingsCategoryTotal(month, category.id))} €`;
+  const categoryTotal = getSavingsCategoryTotal(month, category.id);
+  subtotal.innerHTML = `Total catégorie : <span class="savings-amount">${formatSavingsDisplay(categoryTotal)} €</span>`;
 
   card.appendChild(header);
   card.appendChild(form);

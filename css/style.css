@@ -614,6 +614,11 @@ button:hover {
   color: var(--text);
 }
 
+.savings-amount {
+  color: var(--success);
+  font-weight: 600;
+}
+
 .savings-entry-empty {
   margin: 0;
   font-style: italic;
