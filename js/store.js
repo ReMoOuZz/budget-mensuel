@@ -61,6 +61,9 @@ const DEFAULT_DATA_MODEL = {
       ],
       expenses: [],
       carryOver: 0,
+      paidFixedCharges: [],
+      paidSubscriptions: [],
+      paidCredits: [],
     },
   },
 };
@@ -112,7 +115,7 @@ function mergeSettingsWithDefaults(existing = {}) {
     const defaults = DEFAULT_DATA_MODEL.settings[key] || [];
     const current = Array.isArray(existing[key]) ? existing[key] : [];
 
-    result[key] = defaults.map((item) => {
+    const merged = defaults.map((item) => {
       const match =
         current.find((entry) => entry.id === item.id) ||
         current.find((entry) => entry.label === item.label);
@@ -124,6 +127,24 @@ function mergeSettingsWithDefaults(existing = {}) {
       }
       return { ...item };
     });
+
+    const knownIds = new Set(merged.map((item) => item.id));
+    const knownLabels = new Set(merged.map((item) => item.label));
+
+    current.forEach((entry) => {
+      const entryId = entry.id || uid(`${key}_custom`);
+      const entryLabel = entry.label || "Entrée personnalisée";
+      if (knownIds.has(entryId) || knownLabels.has(entryLabel)) return;
+      merged.push({
+        id: entryId,
+        label: entryLabel,
+        amount: typeof entry.amount === "number" ? entry.amount : 0,
+      });
+      knownIds.add(entryId);
+      knownLabels.add(entryLabel);
+    });
+
+    result[key] = merged;
   });
   return result;
 }

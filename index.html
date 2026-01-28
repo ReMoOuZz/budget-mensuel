@@ -46,7 +46,7 @@
           aria-controls="panel-check"
           data-tab-target="check"
         >
-          Check
+          Home
         </button>
         <button
           type="button"
@@ -123,7 +123,9 @@
             <h2>Revenus</h2>
           </div>
           <div id="incomeList"></div>
-          <button class="primary" onclick="addIncome()">+ Ajouter revenu</button>
+          <button class="primary" onclick="addIncome()">
+            + Ajouter revenu
+          </button>
         </section>
 
         <section class="card expenses-card">
@@ -220,7 +222,7 @@
         hidden
       >
         <div class="charges-toolbar">
-          <a class="settings-link" href="settings.html">Ajuster montants</a>
+          <a class="settings-link" href="settings.html">+ Ajuster montants</a>
         </div>
         <div class="grid recurring-grid">
           <section class="card recurring-card">
@@ -252,10 +254,46 @@
                 Total : <span id="variableChargesTotal"></span> €
               </div>
             </div>
-            <div id="variableChargesList"></div>
-            <button class="primary" onclick="addVariableCharge()">
-              + Ajouter charge
-            </button>
+            <form id="variableChargeForm" class="expense-form">
+              <input required placeholder="Objet" id="varLabel" />
+              <input
+                required
+                type="text"
+                inputmode="decimal"
+                pattern="[0-9]*[.,]?[0-9]*"
+                placeholder="Montant"
+                id="varAmount"
+              />
+              <input type="date" id="varDate" />
+              <button type="submit" class="primary">
+                + Ajouter
+              </button>
+            </form>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Objet</th>
+                    <th>Montant</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="variableChargesTable"></tbody>
+              </table>
+            </div>
+            <div class="variable-charges-chart">
+              <h3>Comparaison charges fixes + variables</h3>
+              <canvas
+                id="chargesComparisonChart"
+                width="400"
+                height="240"
+                aria-label="Comparaison charges globales mois courant vs précédent"
+              ></canvas>
+              <p id="chargesComparisonEmpty" class="chart-empty">
+                Ajoutez au moins deux mois pour comparer vos charges globales.
+              </p>
+            </div>
           </section>
         </div>
       </section>
