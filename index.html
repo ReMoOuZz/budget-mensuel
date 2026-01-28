@@ -33,6 +33,15 @@
       </div>
       <select id="monthSelector"></select>
       <button id="newMonthBtn">Nouveau mois</button>
+      <button
+        id="exportReportBtn"
+        class="icon-button"
+        type="button"
+        title="Partager le mois en PDF"
+        aria-label="Exporter le mois en PDF"
+      >
+        <img src="images/icon-share.svg" alt="" />
+      </button>
     </header>
 
     <main class="dashboard">
@@ -349,6 +358,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="js/store.js"></script>
     <script src="js/calculations.js"></script>
     <script src="js/dashboard.js"></script>

@@ -94,6 +94,12 @@ document.addEventListener("DOMContentLoaded", () => {
   initExpenseForm();
   initVariableChargeForm();
   initSavingsCategoryForm();
+  const exportBtn = document.getElementById("exportReportBtn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      exportMonthlyReport();
+    });
+  }
   ensureTodayDefault("expDate");
   ensureTodayDefault("varDate");
   render();
@@ -887,6 +893,7 @@ function getSavingsTotal(month) {
 let expenseSort = { key: "dateISO", dir: "asc" };
 let lastCreatedExpenseId = null;
 let lastVariableChargeId = null;
+let isExportingReport = false;
 
 function initExpenseForm() {
   const form = document.getElementById("expenseForm");
@@ -1029,12 +1036,14 @@ function renderHistory() {
   if (!container) return;
   container.innerHTML = "";
 
-  const historyKeys = getPreviousMonthKeys(currentMonthKey, MAX_HISTORY_ENTRIES);
+  const historyKeys = getPreviousMonthKeys(
+    currentMonthKey,
+    MAX_HISTORY_ENTRIES,
+  );
   if (!historyKeys.length) {
     const empty = document.createElement("p");
     empty.className = "chart-empty";
-    empty.textContent =
-      "Aucun mois précédent n'est disponible pour l'instant.";
+    empty.textContent = "Aucun mois précédent n'est disponible pour l'instant.";
     container.appendChild(empty);
     return;
   }
@@ -1054,9 +1063,7 @@ function renderHistory() {
 
 function getPreviousMonthKeys(currentKey, limit = MAX_HISTORY_ENTRIES) {
   const keys = Object.keys(appData.months || {});
-  const previous = keys
-    .filter((key) => key < currentKey)
-    .sort();
+  const previous = keys.filter((key) => key < currentKey).sort();
   return previous.slice(-limit).reverse();
 }
 
@@ -1234,7 +1241,8 @@ function updateChargesComparisonChart() {
       legend: { position: "bottom", labels: { color: "#f6f2ff" } },
       tooltip: {
         callbacks: {
-          label: (context) => `${context.dataset.label}: ${money(context.raw)} €`,
+          label: (context) =>
+            `${context.dataset.label}: ${money(context.raw)} €`,
         },
       },
     },
@@ -1327,6 +1335,151 @@ function ensurePieChart(key, canvasId) {
     options: PIE_OPTIONS,
   });
   return pieCharts[key];
+}
+
+async function exportMonthlyReport() {
+  if (isExportingReport) return;
+  const month = appData.months[currentMonthKey];
+  if (!month) {
+    toast("Aucun mois sélectionné.", "warn");
+    return;
+  }
+  const jspdfLib = window.jspdf;
+  if (!jspdfLib?.jsPDF) {
+    toast("Export PDF indisponible.", "warn");
+    return;
+  }
+
+  isExportingReport = true;
+  try {
+    const { jsPDF } = jspdfLib;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    let cursorY = 18;
+
+    const ensureSpace = (height) => {
+      if (cursorY + height > 275) {
+        pdf.addPage();
+        cursorY = 20;
+      }
+    };
+
+    const formatPdfText = (text = "") =>
+      String(text).replace(/\u202F/g, " ").replace(/\u00a0/g, " ");
+    const pdfMoney = (value, formatter = money) =>
+      formatPdfText(formatter(value));
+
+    const addText = (text, size = 11, spacing = 6) => {
+      ensureSpace(spacing);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(size);
+      pdf.text(formatPdfText(text), 14, cursorY);
+      cursorY += spacing;
+    };
+
+    const addSectionTitle = (title) => {
+      ensureSpace(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      const safeTitle = formatPdfText(title);
+      pdf.text(safeTitle, 14, cursorY);
+      const textWidth = pdf.getTextWidth(safeTitle);
+      pdf.setLineWidth(0.4);
+      pdf.line(14, cursorY + 1.5, 14 + textWidth, cursorY + 1.5);
+      cursorY += 12;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+    };
+
+    const calc = calculateMonth(month);
+    const settings = appData.settings || {};
+
+    pdf.setFontSize(16);
+    pdf.text(
+      `Budgify · Rapport ${formatMonthLabel(currentMonthKey)}`,
+      14,
+      cursorY,
+    );
+    cursorY += 10;
+    pdf.setFontSize(11);
+    addSectionTitle("Revenus");
+    addText(`Montant total : ${pdfMoney(calc.income)} €`);
+
+    addSectionTitle("Dépenses courantes");
+    addText(`Montant total : ${pdfMoney(calc.expensesNet)} €`);
+    const importanceCounts = getExpenseImportanceCounts(month.expenses);
+    addText(
+      `Importance — Important: ${importanceCounts.important} · Modéré: ${importanceCounts.modéré} · Faible: ${importanceCounts.faible}`,
+    );
+    const topExpenses = getTopExpenses(month.expenses, 3);
+    if (topExpenses.length) {
+      addText("Top 3 dépenses :", 11, 6);
+      topExpenses.forEach((exp) => {
+        addText(
+          `• ${exp.label} · ${pdfMoney(exp.amount)} € (${exp.importance || "non classé"})`,
+        );
+      });
+    } else {
+      addText("• Aucune dépense enregistrée ce mois.");
+    }
+    cursorY += 4;
+
+    addSectionTitle("Charges");
+    const fixedTotal = sum(settings.fixedCharges);
+    const subscriptionsTotal = sum(settings.subscriptions);
+    const creditsTotal = sum(settings.credits);
+    const variableTotal = sum(month.variableCharges);
+    addText(`Charges fixes : ${pdfMoney(fixedTotal)} €`);
+    addText(`Abonnements : ${pdfMoney(subscriptionsTotal)} €`);
+    addText(`Crédits : ${pdfMoney(creditsTotal)} €`);
+    addText(`Charges variables : ${pdfMoney(variableTotal)} €`);
+    cursorY += 4;
+
+    addSectionTitle("Épargne");
+    const savingsTotal = getSavingsTotal(month);
+    addText(
+      `Montant total : ${pdfMoney(savingsTotal, formatSavingsDisplay)} €`,
+    );
+    cursorY += 6;
+
+    addSectionTitle("Reste à vivre");
+    addText(`${pdfMoney(calc.balance)} €`);
+
+    pdf.save(`budgify-${currentMonthKey}.pdf`);
+    toast("Rapport PDF exporté.");
+  } catch (error) {
+    console.error("Erreur export PDF", error);
+    toast("Erreur lors de l'export PDF.", "warn");
+  } finally {
+    isExportingReport = false;
+  }
+}
+
+function getExpenseImportanceCounts(expenses = []) {
+  const counts = { important: 0, modéré: 0, faible: 0 };
+  expenses.forEach((expense) => {
+    const label = (expense.importance || "").toLowerCase();
+    if (label.includes("important")) counts.important += 1;
+    else if (label.includes("mod")) counts.modéré += 1;
+    else counts.faible += 1;
+  });
+  return counts;
+}
+
+function getTopExpenses(expenses = [], limit = 3) {
+  return expenses
+    .map((expense) => {
+      const details = describeExpense(expense);
+      if (!details || details.type !== "expense" || !details.display)
+        return null;
+      return {
+        label: expense.label || "Sans libellé",
+        amount: details.display,
+        importance: expense.importance || "",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, limit);
 }
 
 function buildColorSet(baseColors = [], length = 0) {
