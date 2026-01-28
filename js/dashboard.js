@@ -14,6 +14,13 @@ const PIE_CHART_COLORS = {
 };
 
 const PIE_LABEL_COLOR = "#f6f2ff";
+const CHARGES_COMPARISON_COLORS = [
+  "#ff7b8f",
+  "#a883ff",
+  "#ffb347",
+  "#6fe7c8",
+  "#5bfab5",
+];
 
 const DOUGHNUT_LABELS_PLUGIN = {
   id: "doughnutLabels",
@@ -76,6 +83,7 @@ const pieCharts = {
   balance: null,
   savings: null,
 };
+let chargesComparisonChart = null;
 
 let currentMonthKey = getInitialMonthKey();
 
@@ -84,7 +92,10 @@ document.addEventListener("DOMContentLoaded", () => {
   initMonthButtons();
   initTabs();
   initExpenseForm();
-  ensureTodayDefault();
+  initVariableChargeForm();
+  initSavingsCategoryForm();
+  ensureTodayDefault("expDate");
+  ensureTodayDefault("varDate");
   render();
 });
 
@@ -118,8 +129,8 @@ function getPreviousMonthKey(key) {
   return addMonths(key, -1);
 }
 
-function ensureTodayDefault() {
-  const dateInput = document.getElementById("expDate");
+function ensureTodayDefault(inputId = "expDate") {
+  const dateInput = document.getElementById(inputId);
   if (dateInput && !dateInput.value) {
     dateInput.value = new Date().toISOString().slice(0, 10);
   }
@@ -234,6 +245,10 @@ function createBlankMonth(carryOver, incomeTemplate = []) {
     variableCharges: [],
     expenses: [],
     carryOver,
+    paidFixedCharges: [],
+    paidSubscriptions: [],
+    paidCredits: [],
+    savingsEntries: [],
   };
 }
 
@@ -267,6 +282,7 @@ function createMonthFromTemplatesWithCarryOver(key) {
 function render() {
   const month = appData.months[currentMonthKey];
   if (!month) return;
+  ensureMonthTrackingState(month);
 
   const calc = calculateMonth(month);
 
@@ -277,11 +293,13 @@ function render() {
   setText("expensesNet", money(calc.expensesNet));
 
   renderIncomes();
-  renderSettingsSections();
+  renderSettingsSections(month);
+  renderSavingsCategories(month);
   renderVariableCharges();
   renderExpenses();
   renderHistory();
   updateCharts(month);
+  updateChargesComparisonChart();
 
   saveData();
 }
@@ -395,18 +413,28 @@ window.adjustCarryOver = function adjustCarryOver() {
    Recurring settings lists (read-only)
 ------------------------------ */
 
+const MONTH_TOGGLE_FIELDS = [
+  "paidFixedCharges",
+  "paidSubscriptions",
+  "paidCredits",
+];
+
 const SETTINGS_SECTIONS = [
   {
     key: "fixedCharges",
     listId: "fixedChargesList",
     totalId: "fixedChargesTotal",
     empty: "Aucune charge fixe définie. Ouvrez la page Ajuster montants.",
+    toggleField: "paidFixedCharges",
+    rowClass: "row-fixed-charge",
   },
   {
     key: "subscriptions",
     listId: "subscriptionsList",
     totalId: "subscriptionsTotal",
     empty: "Aucun abonnement configuré.",
+    toggleField: "paidSubscriptions",
+    rowClass: "row-subscription",
   },
   {
     key: "savings",
@@ -419,20 +447,34 @@ const SETTINGS_SECTIONS = [
     listId: "creditsList",
     totalId: "creditsTotal",
     empty: "Aucun crédit configuré.",
+    toggleField: "paidCredits",
+    rowClass: "row-credit",
   },
 ];
 
-function renderSettingsSections() {
+function ensureMonthTrackingState(month) {
+  if (!month) return;
+  MONTH_TOGGLE_FIELDS.forEach((field) => {
+    if (!Array.isArray(month[field])) {
+      month[field] = [];
+    }
+  });
+  if (!Array.isArray(month.savingsEntries)) {
+    month.savingsEntries = [];
+  }
+}
+
+function renderSettingsSections(month) {
   const settings = appData.settings || {};
   SETTINGS_SECTIONS.forEach((section) => {
     const list = Array.isArray(settings[section.key])
       ? settings[section.key]
       : [];
-    renderSettingsSection(list, section);
+    renderSettingsSection(list, section, month);
   });
 }
 
-function renderSettingsSection(list, config) {
+function renderSettingsSection(list, config, month) {
   const container = document.getElementById(config.listId);
   if (!container) return;
   container.innerHTML = "";
@@ -444,17 +486,72 @@ function renderSettingsSection(list, config) {
     container.appendChild(empty);
   } else {
     list.forEach((item) => {
+      const isToggleable = Boolean(config.toggleField);
+      const rowClasses = ["row", "row-readonly"];
+      if (isToggleable) rowClasses.push("row-recurring-toggle");
+      if (config.rowClass) rowClasses.push(config.rowClass);
+
       const row = document.createElement("div");
-      row.className = "row row-readonly";
+      row.className = rowClasses.join(" ");
+      const amountValue =
+        config.key === "savings"
+          ? getSavingsCategoryTotal(month, item.id)
+          : toNumber(item.amount);
       row.innerHTML = `
         <span class="label">${escapeHtml(item.label)}</span>
-        <span class="amount">${money(item.amount)} €</span>
+        <span class="amount">${money(amountValue)} €</span>
       `;
+
+      if (isToggleable) {
+        row.dataset.recurringId = item.id;
+        row.setAttribute("role", "button");
+        row.tabIndex = 0;
+        const paidList = month?.[config.toggleField] || [];
+        const isPaid = Array.isArray(paidList) && paidList.includes(item.id);
+        row.classList.toggle("is-paid", isPaid);
+        row.setAttribute("aria-pressed", String(isPaid));
+        const toggle = () =>
+          handleRecurringToggle(month, config.toggleField, item.id, row);
+        row.addEventListener("click", toggle);
+        row.addEventListener("keydown", (evt) => {
+          if (evt.key === "Enter" || evt.key === " ") {
+            evt.preventDefault();
+            toggle();
+          }
+        });
+      }
+
       container.appendChild(row);
     });
   }
 
-  if (config.totalId) setText(config.totalId, money(sum(list)));
+  if (config.totalId) {
+    const totalValue =
+      config.key === "savings" ? getSavingsTotal(month) : sum(list);
+    setText(config.totalId, money(totalValue));
+  }
+}
+
+function handleRecurringToggle(month, field, entryId, element) {
+  if (!month || !field || !entryId || !element) return;
+  ensureMonthTrackingState(month);
+  const paidList = month[field];
+  if (!Array.isArray(paidList)) return;
+
+  const existingIndex = paidList.indexOf(entryId);
+  const isRemoving = existingIndex >= 0;
+  if (isRemoving) {
+    paidList.splice(existingIndex, 1);
+  } else {
+    paidList.push(entryId);
+  }
+
+  const isPaid = !isRemoving;
+  element.classList.toggle("is-paid", isPaid);
+  element.setAttribute("aria-pressed", String(isPaid));
+  element.classList.add("is-animating");
+  setTimeout(() => element.classList.remove("is-animating"), 150);
+  saveData();
 }
 
 /* -----------------------------
@@ -463,66 +560,312 @@ function renderSettingsSection(list, config) {
 
 function renderVariableCharges() {
   const month = appData.months[currentMonthKey];
-  const container = document.getElementById("variableChargesList");
-  if (!container) return;
-  container.innerHTML = "";
+  if (!month) return;
+  normalizeVariableCharges(month);
 
-  month.variableCharges.forEach((ch) => {
-    const row = document.createElement("div");
-    row.className = "row";
+  const tbody = document.getElementById("variableChargesTable");
+  if (!tbody) return;
+  tbody.innerHTML = "";
 
-    row.innerHTML = `
-      <input class="text" aria-label="Libellé charge variable" placeholder="Ex: Alimentation" value="${escapeHtml(ch.label)}" />
-      <input class="num" aria-label="Montant charge variable" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" value="${escapeHtml(formatNumberInputValue(ch.amount, true))}" />
-      <button class="danger" title="Supprimer">✕</button>
+  const sorted = [...month.variableCharges].sort((a, b) => {
+    const dateA = a.dateISO || "";
+    const dateB = b.dateISO || "";
+    const cmp = dateA.localeCompare(dateB);
+    if (cmp !== 0) return cmp;
+    return (a.label || "").localeCompare(b.label || "");
+  });
+
+  sorted.forEach((charge) => {
+    const tr = document.createElement("tr");
+    tr.dataset.variableId = charge.id;
+    tr.tabIndex = -1;
+    tr.innerHTML = `
+      <td>${escapeHtml(charge.dateISO || "—")}</td>
+      <td>${escapeHtml(formatExpenseLabel(charge.label))}</td>
+      <td class="expense-amount expense">−${money(charge.amount)} €</td>
+      <td>
+        <button class="danger variable-delete" aria-label="Supprimer">
+          Supprimer
+        </button>
+      </td>
     `;
 
-    const [labelInput, amountInput, delBtn] =
-      row.querySelectorAll("input,button");
-    labelInput.dataset.focusKey = `variable-label-${ch.id}`;
-    amountInput.dataset.focusKey = `variable-amount-${ch.id}`;
-
-    labelInput.addEventListener("input", () => {
-      ch.label = labelInput.value;
-      rerenderPreservingFocus();
-    });
-
-    amountInput.addEventListener("input", () => {
-      ch.amount = sanitizeAmount(amountInput.value);
-      rerenderPreservingFocus();
-    });
-
-    delBtn.addEventListener("click", () => {
+    tr.querySelector("button").addEventListener("click", () => {
       month.variableCharges = month.variableCharges.filter(
-        (x) => x.id !== ch.id,
+        (entry) => entry.id !== charge.id,
       );
       toast("Charge variable supprimée.");
       render();
     });
 
-    container.appendChild(row);
+    tbody.appendChild(tr);
   });
 
   const total = sum(month.variableCharges);
   setText("variableChargesTotal", money(total));
+  focusLatestVariableChargeRow(tbody);
 }
 
-window.addVariableCharge = function addVariableCharge() {
-  const month = appData.months[currentMonthKey];
-  month.variableCharges.push({
-    id: crypto.randomUUID(),
-    label: "",
-    amount: 0,
+function normalizeVariableCharges(month) {
+  if (!Array.isArray(month.variableCharges)) {
+    month.variableCharges = [];
+  }
+  const fallbackDate = currentMonthKey
+    ? `${currentMonthKey}-01`
+    : new Date().toISOString().slice(0, 10);
+  month.variableCharges.forEach((entry) => {
+    if (!entry.id) entry.id = crypto.randomUUID();
+    if (!isValidDate(entry.dateISO)) entry.dateISO = fallbackDate;
+    entry.amount = sanitizeAmount(entry.amount);
+    if (typeof entry.label !== "string") entry.label = "";
   });
-  toast("Charge variable ajoutée.");
+}
+
+/* -----------------------------
+   Savings manager
+------------------------------ */
+
+function initSavingsCategoryForm() {
+  const form = document.getElementById("savingsCategoryForm");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("savingsCategoryInput");
+    if (!input) return;
+    const label = input.value.trim();
+    if (!label) {
+      toast("Nom de catégorie requis.", "warn");
+      return;
+    }
+    addSavingsCategory(label);
+    form.reset();
+  });
+}
+
+function getSavingsCategories() {
+  if (!appData.settings) appData.settings = {};
+  if (!Array.isArray(appData.settings.savings)) {
+    appData.settings.savings = [];
+  }
+  return appData.settings.savings;
+}
+
+function addSavingsCategory(label) {
+  const categories = getSavingsCategories();
+  categories.push({
+    id: crypto.randomUUID(),
+    label: formatExpenseLabel(label),
+  });
+  toast("Catégorie d'épargne ajoutée.");
   render();
-};
+}
+
+function deleteSavingsCategory(categoryId) {
+  if (!categoryId) return;
+  const categories = getSavingsCategories();
+  const index = categories.findIndex((cat) => cat.id === categoryId);
+  if (index === -1) return;
+  categories.splice(index, 1);
+  Object.values(appData.months || {}).forEach((month) => {
+    if (Array.isArray(month?.savingsEntries)) {
+      month.savingsEntries = month.savingsEntries.filter(
+        (entry) => entry.categoryId !== categoryId,
+      );
+    }
+  });
+  toast("Catégorie supprimée.");
+  render();
+}
+
+function renderSavingsCategories(month) {
+  const container = document.getElementById("savingsCategories");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const categories = getSavingsCategories();
+  if (!categories.length) {
+    const empty = document.createElement("p");
+    empty.className = "savings-entry-empty";
+    empty.textContent =
+      "Ajoutez une catégorie d'épargne pour commencer à suivre vos virements.";
+    container.appendChild(empty);
+  } else {
+    categories.forEach((category) => {
+      container.appendChild(buildSavingsCategoryCard(category, month));
+    });
+  }
+
+  const total = getSavingsTotal(month);
+  setText("savingsMonthTotal", money(total));
+  setText("savingsTotal", money(total));
+}
+
+function buildSavingsCategoryCard(category, month) {
+  const card = document.createElement("div");
+  card.className = "savings-category-card";
+  card.dataset.categoryId = category.id;
+
+  const header = document.createElement("header");
+  const title = document.createElement("h3");
+  title.textContent = category.label || "Sans nom";
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "danger icon-only";
+  deleteBtn.title = `Supprimer ${category.label}`;
+  deleteBtn.textContent = "✕";
+  deleteBtn.addEventListener("click", () => deleteSavingsCategory(category.id));
+  header.appendChild(title);
+  header.appendChild(deleteBtn);
+
+  const form = document.createElement("form");
+  form.className = "savings-entry-form";
+  form.innerHTML = `
+    <input
+      name="amount"
+      type="text"
+      inputmode="decimal"
+      pattern="[0-9]*[.,]?[0-9]*"
+      placeholder="Montant"
+    />
+    <input name="date" type="date" />
+    <button class="primary" type="submit">+ Ajouter</button>
+  `;
+  const dateInput = form.querySelector('input[name="date"]');
+  if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleSavingsEntrySubmit(category.id, form);
+  });
+
+  const entries = getSavingsEntriesForCategory(month, category.id);
+
+  let entriesNode;
+  if (!entries.length) {
+    entriesNode = document.createElement("p");
+    entriesNode.className = "savings-entry-empty";
+    entriesNode.textContent = "Aucun virement enregistré pour ce mois.";
+  } else {
+    entriesNode = document.createElement("table");
+    entriesNode.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Montant</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = entriesNode.querySelector("tbody");
+    entries.forEach((entry) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(entry.dateISO || "—")}</td>
+        <td class="expense-amount expense">−${money(entry.amount)} €</td>
+        <td><button class="danger">Supprimer</button></td>
+      `;
+      tr.querySelector("button").addEventListener("click", () => {
+        deleteSavingsEntry(entry.id);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  const subtotal = document.createElement("p");
+  subtotal.className = "savings-month-total";
+  subtotal.textContent = `Total catégorie : ${money(getSavingsCategoryTotal(month, category.id))} €`;
+
+  card.appendChild(header);
+  card.appendChild(form);
+  card.appendChild(entriesNode);
+  card.appendChild(subtotal);
+  return card;
+}
+
+function handleSavingsEntrySubmit(categoryId, form) {
+  const amountInput = form.querySelector('input[name="amount"]');
+  const dateInput = form.querySelector('input[name="date"]');
+  const amount = sanitizeAmount(amountInput?.value);
+  const dateISO = dateInput?.value;
+
+  if (amount <= 0) {
+    toast("Montant invalide.", "warn");
+    return;
+  }
+  if (!isValidDate(dateISO)) {
+    toast("Date invalide.", "warn");
+    return;
+  }
+
+  const month = appData.months[currentMonthKey];
+  ensureMonthTrackingState(month);
+  month.savingsEntries.push({
+    id: crypto.randomUUID(),
+    categoryId,
+    label: "",
+    amount,
+    dateISO,
+  });
+
+  toast("Épargne ajoutée.");
+  form.reset();
+  const dateField = form.querySelector('input[name="date"]');
+  if (dateField) dateField.value = new Date().toISOString().slice(0, 10);
+  render();
+}
+
+function deleteSavingsEntry(entryId) {
+  if (!entryId) return;
+  const month = appData.months[currentMonthKey];
+  if (!Array.isArray(month?.savingsEntries)) return;
+  month.savingsEntries = month.savingsEntries.filter(
+    (entry) => entry.id !== entryId,
+  );
+  toast("Entrée d'épargne supprimée.");
+  render();
+}
+
+function getSavingsEntries(month) {
+  if (!month || !Array.isArray(month.savingsEntries)) return [];
+  return month.savingsEntries;
+}
+
+function getSavingsEntriesForCategory(month, categoryId) {
+  return getSavingsEntries(month)
+    .filter((entry) => entry.categoryId === categoryId)
+    .sort((a, b) => (a.dateISO || "").localeCompare(b.dateISO || ""));
+}
+
+function getSavingsTotalsByCategory(month) {
+  const totals = {};
+  getSavingsEntries(month).forEach((entry) => {
+    const key = entry.categoryId;
+    if (!key) return;
+    totals[key] = (totals[key] || 0) + toNumber(entry.amount);
+  });
+  return totals;
+}
+
+function getSavingsCategoryTotal(month, categoryId) {
+  if (!categoryId) return 0;
+  const totals = getSavingsTotalsByCategory(month);
+  return totals[categoryId] || 0;
+}
+
+function getSavingsTotal(month) {
+  return getSavingsEntries(month).reduce(
+    (sum, entry) => sum + toNumber(entry.amount),
+    0,
+  );
+}
 
 /* -----------------------------
    Expenses: form + table + sort
 ------------------------------ */
 
-let expenseSort = { key: "dateISO", dir: "desc" };
+let expenseSort = { key: "dateISO", dir: "asc" };
+let lastCreatedExpenseId = null;
+let lastVariableChargeId = null;
 
 function initExpenseForm() {
   const form = document.getElementById("expenseForm");
@@ -540,24 +883,30 @@ function initExpenseForm() {
     if (!isValidDate(dateISO)) return toast("Date invalide.", "warn");
 
     const month = appData.months[currentMonthKey];
-    month.expenses.push({
+    const newExpense = {
       id: crypto.randomUUID(),
       label,
       amount,
       dateISO,
       importance,
       isRefund,
-    });
+    };
+    month.expenses.push(newExpense);
+    lastCreatedExpenseId = newExpense.id;
+    expenseSort = { key: "dateISO", dir: "asc" };
 
     form.reset();
-    ensureTodayDefault();
+    ensureTodayDefault("expDate");
     document.getElementById("expIsRefund").checked = false;
     toast("Dépense ajoutée.");
     render();
   });
 
   // Click tri sur headers (simple + efficace)
-  const headers = document.querySelectorAll("table thead th");
+  const expenseTable = document.querySelector(".expenses-card table");
+  const headers = expenseTable
+    ? expenseTable.querySelectorAll("thead th")
+    : null;
   if (headers?.length) {
     // Date, Type, Objet, Montant, Importance, (actions)
     headers[0].style.cursor = "pointer";
@@ -570,12 +919,44 @@ function initExpenseForm() {
   }
 }
 
+function initVariableChargeForm() {
+  const form = document.getElementById("variableChargeForm");
+  if (!form) return;
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const label = document.getElementById("varLabel").value.trim();
+    const amount = sanitizeAmount(document.getElementById("varAmount").value);
+    const dateISO = document.getElementById("varDate").value;
+
+    if (!label) return toast("Objet obligatoire.", "warn");
+    if (amount < 0) return toast("Montant invalide.", "warn");
+    if (!isValidDate(dateISO)) return toast("Date invalide.", "warn");
+
+    const month = appData.months[currentMonthKey];
+    const newCharge = {
+      id: crypto.randomUUID(),
+      label,
+      amount,
+      dateISO,
+    };
+    month.variableCharges.push(newCharge);
+    lastVariableChargeId = newCharge.id;
+
+    form.reset();
+    ensureTodayDefault("varDate");
+    toast("Charge variable ajoutée.");
+    render();
+  });
+}
+
 function setSort(key) {
   if (expenseSort.key === key) {
     expenseSort.dir = expenseSort.dir === "asc" ? "desc" : "asc";
   } else {
     expenseSort.key = key;
-    expenseSort.dir = key === "dateISO" ? "desc" : "asc";
+    expenseSort.dir = "asc";
   }
   render();
 }
@@ -589,6 +970,8 @@ function renderExpenses() {
 
   sorted.forEach((e) => {
     const tr = document.createElement("tr");
+    tr.dataset.expenseId = e.id;
+    tr.tabIndex = -1;
     tr.className = importanceClass(e.importance);
     const descriptor = describeExpense(e);
     const amountText = `${descriptor.type === "refund" ? "+" : "−"}${money(descriptor.display)}`;
@@ -616,6 +999,8 @@ function renderExpenses() {
 
     tbody.appendChild(tr);
   });
+
+  focusLatestExpenseRow(tbody);
 }
 
 function renderHistory() {
@@ -668,7 +1053,7 @@ function formatMonthLabel(key) {
 function updateCharts(month) {
   updateGlobalSpendingChart(month);
   updateIncomeVsChargesChart(month);
-  updateSavingsChart();
+  updateSavingsChart(month);
 }
 
 function updateGlobalSpendingChart(month) {
@@ -678,7 +1063,7 @@ function updateGlobalSpendingChart(month) {
     sum(settings.subscriptions) +
     sum(settings.credits) +
     sum(month.variableCharges);
-  const savingsTotal = sum(settings.savings);
+  const savingsTotal = getSavingsTotal(month);
   const expensesTotal = getPositiveExpensesTotal(month.expenses);
 
   const labels = ["Charges", "Épargne", "Dépenses courantes"];
@@ -728,12 +1113,19 @@ function updateIncomeVsChargesChart(month) {
   );
 }
 
-function updateSavingsChart() {
-  const savings = Array.isArray(appData.settings?.savings)
-    ? appData.settings.savings
-    : [];
-  const labels = savings.map((entry) => entry.label || "Épargne");
-  const data = savings.map((entry) => toNumber(entry.amount));
+function updateSavingsChart(month) {
+  const categories = getSavingsCategories();
+  const totals = getSavingsTotalsByCategory(month);
+  const labels = [];
+  const data = [];
+
+  categories.forEach((category) => {
+    const amount = toNumber(totals[category.id]);
+    if (amount > 0) {
+      labels.push(category.label || "Épargne");
+      data.push(amount);
+    }
+  });
 
   updatePieChart(
     "savings",
@@ -743,6 +1135,122 @@ function updateSavingsChart() {
     data,
     PIE_CHART_COLORS.savings,
   );
+}
+
+function updateChargesComparisonChart() {
+  const canvas = document.getElementById("chargesComparisonChart");
+  const emptyState = document.getElementById("chargesComparisonEmpty");
+  if (!canvas || !emptyState || typeof Chart === "undefined") return;
+
+  const currentMonth = appData.months[currentMonthKey];
+  const prevKey = getPreviousMonthKey(currentMonthKey);
+  const prevMonth = appData.months[prevKey];
+
+  const settings = appData.settings || {};
+  const fixedTotal = sum(settings.fixedCharges);
+  const subscriptionsTotal = sum(settings.subscriptions);
+  const creditsTotal = sum(settings.credits);
+
+  if (!currentMonth || !prevMonth) {
+    if (chargesComparisonChart) {
+      chargesComparisonChart.destroy();
+      chargesComparisonChart = null;
+    }
+    canvas.style.display = "none";
+    emptyState.hidden = false;
+    return;
+  }
+
+  const prevVariable = sum(prevMonth.variableCharges);
+  const currentVariable = sum(currentMonth.variableCharges);
+  const prevSavings = getSavingsTotal(prevMonth);
+  const currentSavings = getSavingsTotal(currentMonth);
+  const labels = [formatMonthLabel(prevKey), formatMonthLabel(currentMonthKey)];
+
+  const datasetsConfig = [
+    { label: "Charges fixes", data: [fixedTotal, fixedTotal] },
+    { label: "Abonnements", data: [subscriptionsTotal, subscriptionsTotal] },
+    { label: "Crédits", data: [creditsTotal, creditsTotal] },
+    { label: "Charges variables", data: [prevVariable, currentVariable] },
+    { label: "Épargne", data: [prevSavings, currentSavings] },
+  ];
+
+  const hasData = datasetsConfig.some((dataset) =>
+    dataset.data.some((value) => Number(value) > 0),
+  );
+
+  if (!hasData) {
+    if (chargesComparisonChart) {
+      chargesComparisonChart.destroy();
+      chargesComparisonChart = null;
+    }
+    canvas.style.display = "none";
+    emptyState.hidden = false;
+    return;
+  }
+
+  const datasets = datasetsConfig.map((dataset, index) => {
+    const isTopLayer = index === datasetsConfig.length - 1;
+    return {
+      label: dataset.label,
+      data: dataset.data,
+      backgroundColor:
+        CHARGES_COMPARISON_COLORS[index % CHARGES_COMPARISON_COLORS.length],
+      stack: "charges",
+      borderSkipped: false,
+      borderRadius: isTopLayer ? { topLeft: 10, topRight: 10 } : 0,
+    };
+  });
+
+  const chartData = {
+    labels,
+    datasets,
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: "bottom", labels: { color: "#f6f2ff" } },
+      tooltip: {
+        callbacks: {
+          label: (context) => `${context.dataset.label}: ${money(context.raw)} €`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        stacked: true,
+        ticks: {
+          callback: (value) => `${money(value)} €`,
+          color: "#f6f2ff",
+        },
+        grid: {
+          color: "rgba(255,255,255,0.12)",
+        },
+      },
+      x: {
+        stacked: true,
+        ticks: { color: "#f6f2ff" },
+        grid: { display: false },
+      },
+    },
+  };
+
+  if (!chargesComparisonChart) {
+    chargesComparisonChart = new Chart(canvas, {
+      type: "bar",
+      data: chartData,
+      options: chartOptions,
+    });
+  } else {
+    chargesComparisonChart.data = chartData;
+    chargesComparisonChart.options = chartOptions;
+    chargesComparisonChart.update();
+  }
+
+  canvas.style.display = "block";
+  emptyState.hidden = true;
 }
 
 function getPositiveExpensesTotal(expenses) {
@@ -844,6 +1352,48 @@ function importanceClass(imp) {
   if (imp === "important") return "imp-high";
   if (imp === "modéré") return "imp-med";
   return "imp-low";
+}
+
+function focusLatestExpenseRow(tbody) {
+  if (!lastCreatedExpenseId) return;
+  const selectorId = escapeSelectorKey(lastCreatedExpenseId);
+  const row = tbody.querySelector(`[data-expense-id=\"${selectorId}\"]`);
+  if (!row) {
+    lastCreatedExpenseId = null;
+    return;
+  }
+  row.classList.add("is-latest");
+  row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  const focusTarget = row.querySelector("button") || row;
+  if (focusTarget && focusTarget.focus) {
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch {
+      focusTarget.focus();
+    }
+  }
+  lastCreatedExpenseId = null;
+}
+
+function focusLatestVariableChargeRow(tbody) {
+  if (!lastVariableChargeId) return;
+  const selectorId = escapeSelectorKey(lastVariableChargeId);
+  const row = tbody.querySelector(`[data-variable-id=\"${selectorId}\"]`);
+  if (!row) {
+    lastVariableChargeId = null;
+    return;
+  }
+  row.classList.add("is-latest");
+  row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  const focusTarget = row.querySelector("button") || row;
+  if (focusTarget && focusTarget.focus) {
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch {
+      focusTarget.focus();
+    }
+  }
+  lastVariableChargeId = null;
 }
 
 /* -----------------------------

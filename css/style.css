@@ -115,7 +115,9 @@ body.theme-dark {
   font-weight: 600;
   letter-spacing: 0.3px;
   padding: 10px 18px;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .tab:hover {
@@ -326,7 +328,9 @@ body.theme-dark {
   font-weight: 600;
   box-shadow: 0 12px 30px rgba(168, 131, 255, 0.35);
   border: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .button-link:hover {
@@ -341,6 +345,11 @@ button {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
   cursor: pointer;
+}
+
+button.icon-only {
+  padding: 8px 12px;
+  min-width: 44px;
 }
 
 button.danger {
@@ -375,6 +384,37 @@ button:hover {
   max-width: 180px;
 }
 
+@media (max-width: 640px) {
+  .incomes-card .row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .incomes-card .row input.text {
+    flex: 1.8;
+    padding: 9px;
+  }
+
+  .incomes-card .row input.num {
+    flex: 0.8;
+    max-width: 90px;
+    padding: 9px;
+    font-size: 0.9rem;
+  }
+
+  .incomes-card .row button {
+    padding: 8px;
+    width: 36px;
+    font-size: 0;
+  }
+
+  .incomes-card .row button::after {
+    content: "✕";
+    font-size: 16px;
+    color: var(--danger);
+  }
+}
+
 .row-readonly {
   align-items: center;
   justify-content: space-between;
@@ -391,6 +431,62 @@ button:hover {
   color: var(--accent);
 }
 
+.row-recurring-toggle {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 16px;
+  transition:
+    transform 0.15s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+  cursor: pointer;
+}
+
+.row-recurring-toggle:is(:hover, :focus-visible) {
+  border-color: rgba(168, 131, 255, 0.5);
+  background: rgba(168, 131, 255, 0.1);
+}
+
+.row-recurring-toggle:focus-visible {
+  outline: 2px solid rgba(168, 131, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.row-fixed-charge.is-paid {
+  background: rgba(91, 250, 181, 0.18);
+  border-color: rgba(91, 250, 181, 0.55);
+  box-shadow: 0 10px 25px rgba(91, 250, 181, 0.25);
+}
+
+.row-fixed-charge.is-paid .amount {
+  color: var(--success);
+}
+
+.row-subscription.is-paid {
+  background: rgba(168, 131, 255, 0.18);
+  border-color: rgba(168, 131, 255, 0.55);
+  box-shadow: 0 10px 25px rgba(168, 131, 255, 0.3);
+}
+
+.row-subscription.is-paid .amount {
+  color: var(--accent-strong);
+}
+
+.row-credit.is-paid {
+  background: rgba(255, 179, 71, 0.2);
+  border-color: rgba(255, 179, 71, 0.6);
+  box-shadow: 0 10px 25px rgba(255, 179, 71, 0.35);
+}
+
+.row-credit.is-paid .amount {
+  color: var(--warning);
+}
+
+.row-recurring-toggle.is-animating {
+  transform: scale(0.97);
+}
+
 .fixed-list {
   margin-bottom: 12px;
 }
@@ -403,8 +499,131 @@ button:hover {
 
 .savings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: var(--grid-gap);
+}
+
+.savings-chart-wrapper {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.savings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.savings-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.savings-category-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.savings-category-form input {
+  flex: 1;
+  min-width: 220px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.savings-category-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .savings-category-list {
+    grid-template-columns: 1fr;
+  }
+
+  .variable-delete {
+    padding: 10px;
+    width: 44px;
+    font-size: 0;
+  }
+
+  .variable-delete::after {
+    content: "✕";
+    font-size: 20px;
+    color: var(--danger);
+  }
+}
+
+.savings-category-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.savings-category-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.savings-category-card header h3 {
+  margin: 0;
+}
+
+.savings-category-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.savings-category-card th,
+.savings-category-card td {
+  text-align: left;
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.savings-category-card td:last-child {
+  text-align: right;
+}
+
+.savings-entry-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.savings-entry-form input {
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.savings-entry-empty {
+  margin: 0;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.savings-month-total {
+  margin: 0;
+  font-weight: 600;
+  align-self: flex-end;
 }
 
 .recurring-card.wide {
@@ -503,8 +722,69 @@ button:hover {
 
 .table-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 560px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#expensesTable tr.is-latest,
+#variableChargesTable tr.is-latest {
+  background: rgba(168, 131, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(168, 131, 255, 0.4);
+}
+
+#expensesTable td:last-child,
+#variableChargesTable td:last-child {
+  width: 90px;
+  text-align: center;
+}
+
+#expensesTable td:last-child button,
+#variableChargesTable td:last-child button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.variable-charges-chart {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+
+.variable-charges-chart h3 {
+  margin: 0 0 1em;
+}
+
+.variable-charges-chart canvas {
+  max-width: 420px;
+  width: 100%;
+}
+
+.savings-chart-wrapper .chart-wrapper {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.savings-chart-wrapper canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 420px;
 }
 
 .chart-card {
@@ -700,6 +980,11 @@ tbody tr:hover {
   margin-bottom: 24px;
 }
 
+.settings-note {
+  color: var(--muted);
+  margin: 0;
+}
+
 .manage-list .row-manage {
   padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -707,10 +992,14 @@ tbody tr:hover {
 
 .manage-card {
   margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .row-manage {
   gap: 12px;
+  align-items: center;
 }
 
 .row-manage input.text {
@@ -724,4 +1013,14 @@ tbody tr:hover {
 
 .row-manage input.num {
   max-width: 160px;
+}
+
+.row-manage button.icon-only {
+  padding: 10px 14px;
+  min-width: 44px;
+}
+
+.manage-add-btn {
+  margin-top: 12px;
+  align-self: flex-start;
 }

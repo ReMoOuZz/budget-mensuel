@@ -21,7 +21,7 @@ function calculateMonth(month) {
 
   const fixed = sum(s.fixedCharges);
   const subs = sum(s.subscriptions);
-  const savings = sum(s.savings);
+  const savings = getSavingsEntriesTotal(month);
   const credits = sum(s.credits);
 
   const totalCharges =
@@ -29,6 +29,14 @@ function calculateMonth(month) {
   const balance = month.carryOver + income - totalCharges;
 
   return { income, totalCharges, expensesNet, balance };
+}
+
+function getSavingsEntriesTotal(month) {
+  if (!Array.isArray(month?.savingsEntries)) return 0;
+  return month.savingsEntries.reduce(
+    (total, entry) => total + toAmount(entry.amount),
+    0,
+  );
 }
 
 function expenseNetValue(expense = {}) {
@@ -46,5 +54,6 @@ if (typeof module !== "undefined") {
     sum,
     calculateMonth,
     expenseNetValue,
+    getSavingsEntriesTotal,
   };
 }
