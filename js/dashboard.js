@@ -14,7 +14,13 @@ const PIE_CHART_COLORS = {
 };
 
 const PIE_LABEL_COLOR = "#f6f2ff";
-const CHARGES_COMPARISON_COLORS = ["#ff7b8f", "#a883ff", "#ffb347", "#6fe7c8"];
+const CHARGES_COMPARISON_COLORS = [
+  "#ff7b8f",
+  "#a883ff",
+  "#ffb347",
+  "#6fe7c8",
+  "#5bfab5",
+];
 
 const DOUGHNUT_LABELS_PLUGIN = {
   id: "doughnutLabels",
@@ -87,6 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initExpenseForm();
   initVariableChargeForm();
+  initSavingsCategoryForm();
   ensureTodayDefault("expDate");
   ensureTodayDefault("varDate");
   render();
@@ -241,6 +248,7 @@ function createBlankMonth(carryOver, incomeTemplate = []) {
     paidFixedCharges: [],
     paidSubscriptions: [],
     paidCredits: [],
+    savingsEntries: [],
   };
 }
 
@@ -286,6 +294,7 @@ function render() {
 
   renderIncomes();
   renderSettingsSections(month);
+  renderSavingsCategories(month);
   renderVariableCharges();
   renderExpenses();
   renderHistory();
@@ -450,6 +459,9 @@ function ensureMonthTrackingState(month) {
       month[field] = [];
     }
   });
+  if (!Array.isArray(month.savingsEntries)) {
+    month.savingsEntries = [];
+  }
 }
 
 function renderSettingsSections(month) {
@@ -481,9 +493,13 @@ function renderSettingsSection(list, config, month) {
 
       const row = document.createElement("div");
       row.className = rowClasses.join(" ");
+      const amountValue =
+        config.key === "savings"
+          ? getSavingsCategoryTotal(month, item.id)
+          : toNumber(item.amount);
       row.innerHTML = `
         <span class="label">${escapeHtml(item.label)}</span>
-        <span class="amount">${money(item.amount)} €</span>
+        <span class="amount">${money(amountValue)} €</span>
       `;
 
       if (isToggleable) {
@@ -509,7 +525,11 @@ function renderSettingsSection(list, config, month) {
     });
   }
 
-  if (config.totalId) setText(config.totalId, money(sum(list)));
+  if (config.totalId) {
+    const totalValue =
+      config.key === "savings" ? getSavingsTotal(month) : sum(list);
+    setText(config.totalId, money(totalValue));
+  }
 }
 
 function handleRecurringToggle(month, field, entryId, element) {
@@ -563,7 +583,11 @@ function renderVariableCharges() {
       <td>${escapeHtml(charge.dateISO || "—")}</td>
       <td>${escapeHtml(formatExpenseLabel(charge.label))}</td>
       <td class="expense-amount expense">−${money(charge.amount)} €</td>
-      <td><button class="danger">Supprimer</button></td>
+      <td>
+        <button class="danger variable-delete" aria-label="Supprimer">
+          Supprimer
+        </button>
+      </td>
     `;
 
     tr.querySelector("button").addEventListener("click", () => {
@@ -595,6 +619,244 @@ function normalizeVariableCharges(month) {
     entry.amount = sanitizeAmount(entry.amount);
     if (typeof entry.label !== "string") entry.label = "";
   });
+}
+
+/* -----------------------------
+   Savings manager
+------------------------------ */
+
+function initSavingsCategoryForm() {
+  const form = document.getElementById("savingsCategoryForm");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("savingsCategoryInput");
+    if (!input) return;
+    const label = input.value.trim();
+    if (!label) {
+      toast("Nom de catégorie requis.", "warn");
+      return;
+    }
+    addSavingsCategory(label);
+    form.reset();
+  });
+}
+
+function getSavingsCategories() {
+  if (!appData.settings) appData.settings = {};
+  if (!Array.isArray(appData.settings.savings)) {
+    appData.settings.savings = [];
+  }
+  return appData.settings.savings;
+}
+
+function addSavingsCategory(label) {
+  const categories = getSavingsCategories();
+  categories.push({
+    id: crypto.randomUUID(),
+    label: formatExpenseLabel(label),
+  });
+  toast("Catégorie d'épargne ajoutée.");
+  render();
+}
+
+function deleteSavingsCategory(categoryId) {
+  if (!categoryId) return;
+  const categories = getSavingsCategories();
+  const index = categories.findIndex((cat) => cat.id === categoryId);
+  if (index === -1) return;
+  categories.splice(index, 1);
+  Object.values(appData.months || {}).forEach((month) => {
+    if (Array.isArray(month?.savingsEntries)) {
+      month.savingsEntries = month.savingsEntries.filter(
+        (entry) => entry.categoryId !== categoryId,
+      );
+    }
+  });
+  toast("Catégorie supprimée.");
+  render();
+}
+
+function renderSavingsCategories(month) {
+  const container = document.getElementById("savingsCategories");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const categories = getSavingsCategories();
+  if (!categories.length) {
+    const empty = document.createElement("p");
+    empty.className = "savings-entry-empty";
+    empty.textContent =
+      "Ajoutez une catégorie d'épargne pour commencer à suivre vos virements.";
+    container.appendChild(empty);
+  } else {
+    categories.forEach((category) => {
+      container.appendChild(buildSavingsCategoryCard(category, month));
+    });
+  }
+
+  const total = getSavingsTotal(month);
+  setText("savingsMonthTotal", money(total));
+  setText("savingsTotal", money(total));
+}
+
+function buildSavingsCategoryCard(category, month) {
+  const card = document.createElement("div");
+  card.className = "savings-category-card";
+  card.dataset.categoryId = category.id;
+
+  const header = document.createElement("header");
+  const title = document.createElement("h3");
+  title.textContent = category.label || "Sans nom";
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "danger icon-only";
+  deleteBtn.title = `Supprimer ${category.label}`;
+  deleteBtn.textContent = "✕";
+  deleteBtn.addEventListener("click", () => deleteSavingsCategory(category.id));
+  header.appendChild(title);
+  header.appendChild(deleteBtn);
+
+  const form = document.createElement("form");
+  form.className = "savings-entry-form";
+  form.innerHTML = `
+    <input
+      name="amount"
+      type="text"
+      inputmode="decimal"
+      pattern="[0-9]*[.,]?[0-9]*"
+      placeholder="Montant"
+    />
+    <input name="date" type="date" />
+    <button class="primary" type="submit">+ Ajouter</button>
+  `;
+  const dateInput = form.querySelector('input[name="date"]');
+  if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleSavingsEntrySubmit(category.id, form);
+  });
+
+  const entries = getSavingsEntriesForCategory(month, category.id);
+
+  let entriesNode;
+  if (!entries.length) {
+    entriesNode = document.createElement("p");
+    entriesNode.className = "savings-entry-empty";
+    entriesNode.textContent = "Aucun virement enregistré pour ce mois.";
+  } else {
+    entriesNode = document.createElement("table");
+    entriesNode.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Montant</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = entriesNode.querySelector("tbody");
+    entries.forEach((entry) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(entry.dateISO || "—")}</td>
+        <td class="expense-amount expense">−${money(entry.amount)} €</td>
+        <td><button class="danger">Supprimer</button></td>
+      `;
+      tr.querySelector("button").addEventListener("click", () => {
+        deleteSavingsEntry(entry.id);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  const subtotal = document.createElement("p");
+  subtotal.className = "savings-month-total";
+  subtotal.textContent = `Total catégorie : ${money(getSavingsCategoryTotal(month, category.id))} €`;
+
+  card.appendChild(header);
+  card.appendChild(form);
+  card.appendChild(entriesNode);
+  card.appendChild(subtotal);
+  return card;
+}
+
+function handleSavingsEntrySubmit(categoryId, form) {
+  const amountInput = form.querySelector('input[name="amount"]');
+  const dateInput = form.querySelector('input[name="date"]');
+  const amount = sanitizeAmount(amountInput?.value);
+  const dateISO = dateInput?.value;
+
+  if (amount <= 0) {
+    toast("Montant invalide.", "warn");
+    return;
+  }
+  if (!isValidDate(dateISO)) {
+    toast("Date invalide.", "warn");
+    return;
+  }
+
+  const month = appData.months[currentMonthKey];
+  ensureMonthTrackingState(month);
+  month.savingsEntries.push({
+    id: crypto.randomUUID(),
+    categoryId,
+    label: "",
+    amount,
+    dateISO,
+  });
+
+  toast("Épargne ajoutée.");
+  form.reset();
+  const dateField = form.querySelector('input[name="date"]');
+  if (dateField) dateField.value = new Date().toISOString().slice(0, 10);
+  render();
+}
+
+function deleteSavingsEntry(entryId) {
+  if (!entryId) return;
+  const month = appData.months[currentMonthKey];
+  if (!Array.isArray(month?.savingsEntries)) return;
+  month.savingsEntries = month.savingsEntries.filter(
+    (entry) => entry.id !== entryId,
+  );
+  toast("Entrée d'épargne supprimée.");
+  render();
+}
+
+function getSavingsEntries(month) {
+  if (!month || !Array.isArray(month.savingsEntries)) return [];
+  return month.savingsEntries;
+}
+
+function getSavingsEntriesForCategory(month, categoryId) {
+  return getSavingsEntries(month)
+    .filter((entry) => entry.categoryId === categoryId)
+    .sort((a, b) => (a.dateISO || "").localeCompare(b.dateISO || ""));
+}
+
+function getSavingsTotalsByCategory(month) {
+  const totals = {};
+  getSavingsEntries(month).forEach((entry) => {
+    const key = entry.categoryId;
+    if (!key) return;
+    totals[key] = (totals[key] || 0) + toNumber(entry.amount);
+  });
+  return totals;
+}
+
+function getSavingsCategoryTotal(month, categoryId) {
+  if (!categoryId) return 0;
+  const totals = getSavingsTotalsByCategory(month);
+  return totals[categoryId] || 0;
+}
+
+function getSavingsTotal(month) {
+  return getSavingsEntries(month).reduce(
+    (sum, entry) => sum + toNumber(entry.amount),
+    0,
+  );
 }
 
 /* -----------------------------
@@ -791,7 +1053,7 @@ function formatMonthLabel(key) {
 function updateCharts(month) {
   updateGlobalSpendingChart(month);
   updateIncomeVsChargesChart(month);
-  updateSavingsChart();
+  updateSavingsChart(month);
 }
 
 function updateGlobalSpendingChart(month) {
@@ -801,7 +1063,7 @@ function updateGlobalSpendingChart(month) {
     sum(settings.subscriptions) +
     sum(settings.credits) +
     sum(month.variableCharges);
-  const savingsTotal = sum(settings.savings);
+  const savingsTotal = getSavingsTotal(month);
   const expensesTotal = getPositiveExpensesTotal(month.expenses);
 
   const labels = ["Charges", "Épargne", "Dépenses courantes"];
@@ -851,12 +1113,19 @@ function updateIncomeVsChargesChart(month) {
   );
 }
 
-function updateSavingsChart() {
-  const savings = Array.isArray(appData.settings?.savings)
-    ? appData.settings.savings
-    : [];
-  const labels = savings.map((entry) => entry.label || "Épargne");
-  const data = savings.map((entry) => toNumber(entry.amount));
+function updateSavingsChart(month) {
+  const categories = getSavingsCategories();
+  const totals = getSavingsTotalsByCategory(month);
+  const labels = [];
+  const data = [];
+
+  categories.forEach((category) => {
+    const amount = toNumber(totals[category.id]);
+    if (amount > 0) {
+      labels.push(category.label || "Épargne");
+      data.push(amount);
+    }
+  });
 
   updatePieChart(
     "savings",
@@ -894,6 +1163,8 @@ function updateChargesComparisonChart() {
 
   const prevVariable = sum(prevMonth.variableCharges);
   const currentVariable = sum(currentMonth.variableCharges);
+  const prevSavings = getSavingsTotal(prevMonth);
+  const currentSavings = getSavingsTotal(currentMonth);
   const labels = [formatMonthLabel(prevKey), formatMonthLabel(currentMonthKey)];
 
   const datasetsConfig = [
@@ -901,6 +1172,7 @@ function updateChargesComparisonChart() {
     { label: "Abonnements", data: [subscriptionsTotal, subscriptionsTotal] },
     { label: "Crédits", data: [creditsTotal, creditsTotal] },
     { label: "Charges variables", data: [prevVariable, currentVariable] },
+    { label: "Épargne", data: [prevSavings, currentSavings] },
   ];
 
   const hasData = datasetsConfig.some((dataset) =>

@@ -20,14 +20,6 @@ const SETTINGS_CONFIG = {
     emptyText: "Aucun abonnement configuré pour l'instant.",
     trackingField: "paidSubscriptions",
   },
-  savings: {
-    addLabel: "+ Ajouter un virement",
-    defaultLabel: "Nouvelle épargne",
-    idPrefix: "sav_custom",
-    toastAdd: "Virement épargne ajouté.",
-    toastDelete: "Virement supprimé.",
-    emptyText: "Aucun virement d'épargne défini.",
-  },
   credits: {
     addLabel: "+ Ajouter un crédit",
     defaultLabel: "Nouveau crédit",

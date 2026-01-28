@@ -33,13 +33,7 @@ const DEFAULT_DATA_MODEL = {
       { id: "sub_chatgpt", label: "ChatGPT", amount: 23.0 },
     ],
 
-    savings: [
-      { id: "sav_alaric", label: "Alaric", amount: 50.0 },
-      { id: "sav_bourse", label: "Bourse", amount: 100.0 },
-      { id: "sav_gomining", label: "GoMining", amount: 100.0 },
-      { id: "sav_bitstack", label: "Bitstack", amount: 110.0 },
-      { id: "sav_epargne", label: "Epargne", amount: 100.0 },
-    ],
+    savings: [],
 
     credits: [
       { id: "cr_maison", label: "Maison", amount: 613 },
@@ -64,6 +58,7 @@ const DEFAULT_DATA_MODEL = {
       paidFixedCharges: [],
       paidSubscriptions: [],
       paidCredits: [],
+      savingsEntries: [],
     },
   },
 };

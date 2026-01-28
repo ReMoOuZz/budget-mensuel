@@ -307,12 +307,28 @@
         hidden
       >
         <div class="savings-grid">
-          <section class="card recurring-card savings-card">
-            <h2>Épargne programmée</h2>
-            <div id="savingsList" class="fixed-list"></div>
-            <div class="totals">Total : <span id="savingsTotal"></span> €</div>
+          <section class="card savings-card">
+            <div class="savings-card-header">
+              <h2>Épargne</h2>
+              <form id="savingsCategoryForm" class="savings-category-form">
+                <input
+                  id="savingsCategoryInput"
+                  placeholder="Nouvelle catégorie"
+                  required
+                />
+                <button class="primary" type="submit">
+                  + Ajouter catégorie
+                </button>
+              </form>
+            </div>
+            <div id="savingsCategories" class="savings-category-list"></div>
+            <p class="savings-month-total">
+              Total du mois : <span id="savingsMonthTotal">0,00</span> €
+            </p>
           </section>
+        </div>
 
+        <div class="savings-chart-wrapper">
           <section class="card chart-card">
             <div class="chart-card-header">
               <h2>Focus épargne</h2>

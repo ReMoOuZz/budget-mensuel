@@ -347,6 +347,11 @@ button {
   cursor: pointer;
 }
 
+button.icon-only {
+  padding: 8px 12px;
+  min-width: 44px;
+}
+
 button.danger {
   background: rgba(255, 123, 143, 0.12);
   border-color: rgba(255, 123, 143, 0.4);
@@ -377,6 +382,37 @@ button:hover {
 
 .row input.num {
   max-width: 180px;
+}
+
+@media (max-width: 640px) {
+  .incomes-card .row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .incomes-card .row input.text {
+    flex: 1.8;
+    padding: 9px;
+  }
+
+  .incomes-card .row input.num {
+    flex: 0.8;
+    max-width: 90px;
+    padding: 9px;
+    font-size: 0.9rem;
+  }
+
+  .incomes-card .row button {
+    padding: 8px;
+    width: 36px;
+    font-size: 0;
+  }
+
+  .incomes-card .row button::after {
+    content: "✕";
+    font-size: 16px;
+    color: var(--danger);
+  }
 }
 
 .row-readonly {
@@ -463,8 +499,131 @@ button:hover {
 
 .savings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: var(--grid-gap);
+}
+
+.savings-chart-wrapper {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.savings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.savings-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.savings-category-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.savings-category-form input {
+  flex: 1;
+  min-width: 220px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.savings-category-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .savings-category-list {
+    grid-template-columns: 1fr;
+  }
+
+  .variable-delete {
+    padding: 10px;
+    width: 44px;
+    font-size: 0;
+  }
+
+  .variable-delete::after {
+    content: "✕";
+    font-size: 20px;
+    color: var(--danger);
+  }
+}
+
+.savings-category-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.savings-category-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.savings-category-card header h3 {
+  margin: 0;
+}
+
+.savings-category-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.savings-category-card th,
+.savings-category-card td {
+  text-align: left;
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.savings-category-card td:last-child {
+  text-align: right;
+}
+
+.savings-entry-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.savings-entry-form input {
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.savings-entry-empty {
+  margin: 0;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.savings-month-total {
+  margin: 0;
+  font-weight: 600;
+  align-self: flex-end;
 }
 
 .recurring-card.wide {
@@ -614,6 +773,18 @@ button:hover {
 .variable-charges-chart canvas {
   max-width: 420px;
   width: 100%;
+}
+
+.savings-chart-wrapper .chart-wrapper {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.savings-chart-wrapper canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 420px;
 }
 
 .chart-card {
@@ -807,6 +978,11 @@ tbody tr:hover {
 .settings-tip {
   color: var(--muted);
   margin-bottom: 24px;
+}
+
+.settings-note {
+  color: var(--muted);
+  margin: 0;
 }
 
 .manage-list .row-manage {

@@ -18,7 +18,7 @@ const baseSettings = {
     { id: "b", label: "Électricité", amount: 120 },
   ],
   subscriptions: [{ id: "c", label: "Netflix", amount: 15 }],
-  savings: [{ id: "d", label: "Épargne", amount: 100 }],
+  savings: [{ id: "d", label: "Épargne" }],
   credits: [{ id: "e", label: "Crédit auto", amount: 250 }],
 };
 
@@ -59,6 +59,9 @@ test("calculateMonth agrège revenus, charges et remboursements", () => {
       { amount: 120 },
       { amount: 60, isRefund: true },
     ],
+    savingsEntries: [
+      { categoryId: "d", amount: 300, dateISO: "2026-01-05" },
+    ],
   };
 
   const result = calculateMonth(month);
@@ -67,7 +70,7 @@ test("calculateMonth agrège revenus, charges et remboursements", () => {
   assert.equal(result.expensesNet, 60);
   assert.equal(
     result.totalCharges,
-    800 + 120 + 15 + 100 + 250 + 200 + 60,
+    800 + 120 + 15 + 250 + 200 + 60 + 300,
   );
   assert.equal(result.balance, 100 + 2500 - result.totalCharges);
 });
@@ -94,7 +97,7 @@ test("calculateMonth résiste aux champs manquants", () => {
   const result = calculateMonth({});
   assert.equal(result.income, 0);
   assert.equal(result.expensesNet, 0);
-  assert.equal(result.totalCharges, 800 + 120 + 15 + 100 + 250);
+  assert.equal(result.totalCharges, 800 + 120 + 15 + 250);
 });
 
 test("expenseNetValue déduit les montants remboursés", () => {
