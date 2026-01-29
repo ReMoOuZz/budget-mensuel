@@ -89,7 +89,8 @@ let currentMonthKey = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   await ensureAppReady();
-  currentMonthKey = getInitialMonthKey();
+  const ensuredKey = await ensureCurrentMonthAvailable();
+  currentMonthKey = ensuredKey || getInitialMonthKey();
   setupProfileMenu();
   initMonthSelector();
   initMonthButtons();
@@ -109,11 +110,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   render();
 });
 
-document.addEventListener("budgify:data:hydrated", () => {
-  const monthExists = currentMonthKey && appData.months?.[currentMonthKey];
-  if (!monthExists) {
-    currentMonthKey = getInitialMonthKey();
-  }
+document.addEventListener("budgify:data:hydrated", async () => {
+  await ensureCurrentMonthAvailable();
+  currentMonthKey = getInitialMonthKey();
   rebuildMonthSelectorOptions();
   const selector = document.getElementById("monthSelector");
   if (selector && currentMonthKey) {
@@ -127,8 +126,16 @@ document.addEventListener("budgify:data:hydrated", () => {
 ------------------------------ */
 
 function getInitialMonthKey() {
+  const todayKey = getTodayKey();
+  if (appData?.months?.[todayKey]) {
+    return todayKey;
+  }
   const keys = Object.keys(appData.months || {}).sort();
   if (keys.length) return keys[keys.length - 1];
+  return todayKey;
+}
+
+function getTodayKey() {
   return getYYYYMM(new Date());
 }
 
@@ -163,6 +170,19 @@ async function ensureAppReady() {
     } catch (error) {
       console.warn("Impossible de charger les données distantes.", error);
     }
+  }
+}
+
+async function ensureCurrentMonthAvailable() {
+  if (!appData.months) appData.months = {};
+  const todayKey = getTodayKey();
+  if (appData.months[todayKey]) return todayKey;
+  try {
+    await createMonthFromTemplatesWithCarryOver(todayKey, { silent: true });
+    return todayKey;
+  } catch (error) {
+    console.warn("Impossible de créer automatiquement le mois courant.", error);
+    return null;
   }
 }
 
@@ -345,7 +365,10 @@ function createBlankMonth(carryOver, incomeTemplate = []) {
   };
 }
 
-async function createMonthFromTemplatesWithCarryOver(key) {
+async function createMonthFromTemplatesWithCarryOver(
+  key,
+  { silent = false } = {},
+) {
   // 1) carryOver = pnl (balance) du mois précédent si dispo
   const prevKey = getPreviousMonthKey(key);
   let carryOver = 0;
@@ -372,7 +395,9 @@ async function createMonthFromTemplatesWithCarryOver(key) {
   } finally {
     schedulePersistCurrentMonth(key);
   }
-  toast(`Mois créé : ${key} (report: ${carryOver}€)`);
+  if (!silent) {
+    toast(`Mois créé : ${key} (report: ${carryOver}€)`);
+  }
 }
 
 /* -----------------------------
