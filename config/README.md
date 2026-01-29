@@ -1,6 +1,6 @@
 # Front-end API configuration
 
-- `js/config.js` expose deux URLs : `dev` (http://localhost:4000) et `prod` (https://budgify-2026.herokuapp.com).
+- `js/config.js` expose deux URLs : `dev` (http://localhost:4000) et `prod` (https://budgify-2026-a22ffa49cc37.herokuapp.com).
 - Le front choisit automatiquement l'environnement :
   - `localhost` → `dev`
   - `github.io` ou tout autre domaine → `prod`

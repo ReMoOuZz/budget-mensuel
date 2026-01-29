@@ -1,7 +1,7 @@
 (function () {
   const API_ENDPOINTS = {
     dev: "http://localhost:4000",
-    prod: "https://budgify-2026.herokuapp.com",
+    prod: "https://budgify-2026-a22ffa49cc37.herokuapp.com",
   };
 
   function detectEnv() {
