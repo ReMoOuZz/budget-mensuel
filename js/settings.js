@@ -33,10 +33,15 @@ const SETTINGS_CONFIG = {
 
 const SETTINGS_CATEGORIES = Object.keys(SETTINGS_CONFIG);
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await ensureAppReady();
   if (!appData?.settings) appData.settings = {};
   SETTINGS_CATEGORIES.forEach((key) => renderCategory(key));
   initAddButtons();
+});
+
+document.addEventListener("budgify:data:hydrated", () => {
+  SETTINGS_CATEGORIES.forEach((key) => renderCategory(key));
 });
 
 function renderCategory(key) {
@@ -199,6 +204,16 @@ function formatAmountInput(value) {
 
 function persist() {
   saveData();
+}
+
+async function ensureAppReady() {
+  if (window.BudgifyApp?.ready) {
+    try {
+      await window.BudgifyApp.ready();
+    } catch (error) {
+      console.warn("Impossible de charger les données distantes.", error);
+    }
+  }
 }
 
 function toast(message, type = "ok") {

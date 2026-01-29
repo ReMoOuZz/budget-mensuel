@@ -42,6 +42,24 @@
       >
         <img src="images/icon-share.svg" alt="" />
       </button>
+      <div class="profile-shell">
+        <button
+          id="profileBtn"
+          class="profile-btn"
+          type="button"
+          aria-haspopup="true"
+          aria-expanded="false"
+          title="Compte"
+        >
+          <img src="images/icon-user.svg" alt="" class="profile-avatar" />
+        </button>
+        <div id="profileMenu" class="profile-menu" role="menu">
+          <p class="profile-email" id="profileEmail">—</p>
+          <button type="button" id="logoutBtn" class="profile-logout">
+            Se déconnecter
+          </button>
+        </div>
+      </div>
     </header>
 
     <main class="dashboard">
@@ -359,7 +377,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/store.js"></script>
+    <script src="js/app.js"></script>
     <script src="js/calculations.js"></script>
     <script src="js/dashboard.js"></script>
   </body>

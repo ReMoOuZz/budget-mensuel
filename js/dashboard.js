@@ -85,9 +85,12 @@ const pieCharts = {
 };
 let chargesComparisonChart = null;
 
-let currentMonthKey = getInitialMonthKey();
+let currentMonthKey = null;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await ensureAppReady();
+  currentMonthKey = getInitialMonthKey();
+  setupProfileMenu();
   initMonthSelector();
   initMonthButtons();
   initTabs();
@@ -102,6 +105,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   ensureTodayDefault("expDate");
   ensureTodayDefault("varDate");
+  render();
+});
+
+document.addEventListener("budgify:data:hydrated", () => {
+  const monthExists = currentMonthKey && appData.months?.[currentMonthKey];
+  if (!monthExists) {
+    currentMonthKey = getInitialMonthKey();
+  }
+  rebuildMonthSelectorOptions();
+  const selector = document.getElementById("monthSelector");
+  if (selector && currentMonthKey) {
+    selector.value = currentMonthKey;
+  }
   render();
 });
 
@@ -137,6 +153,62 @@ function ensureTodayDefault(inputId = "expDate") {
   if (dateInput && !dateInput.value) {
     dateInput.value = new Date().toISOString().slice(0, 10);
   }
+}
+
+async function ensureAppReady() {
+  if (window.BudgifyApp?.ready) {
+    try {
+      await window.BudgifyApp.ready();
+    } catch (error) {
+      console.warn("Impossible de charger les données distantes.", error);
+    }
+  }
+}
+
+function setupProfileMenu() {
+  const shell = document.querySelector(".profile-shell");
+  const btn = document.getElementById("profileBtn");
+  const menu = document.getElementById("profileMenu");
+  const emailEl = document.getElementById("profileEmail");
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (!shell || !btn || !menu) return;
+
+  const closeMenu = () => {
+    shell.classList.remove("is-open");
+    btn.setAttribute("aria-expanded", "false");
+  };
+
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = shell.classList.toggle("is-open");
+    btn.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!shell.contains(event.target)) {
+      closeMenu();
+    }
+  });
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      closeMenu();
+      if (window.BudgifyApp?.logout) {
+        await window.BudgifyApp.logout();
+      }
+    });
+  }
+
+  const updateProfile = (user) => {
+    const email = user?.email || "";
+    if (emailEl) emailEl.textContent = email || "Utilisateur invité";
+  };
+
+  document.addEventListener("budgify:auth", (event) => {
+    updateProfile(event.detail?.user);
+  });
+
+  updateProfile(window.BudgifyApp?.currentUser);
 }
 
 /* -----------------------------

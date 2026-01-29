@@ -90,6 +90,13 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
 }
 
+function replaceAppData(nextData, { persist = true } = {}) {
+  if (!nextData || typeof nextData !== "object") return appData;
+  appData = nextData;
+  if (persist) saveData();
+  return appData;
+}
+
 function cloneDefaults() {
   const cloned = structuredClone(DEFAULT_DATA_MODEL);
   cloned.settings = mergeSettingsWithDefaults(cloned.settings);
@@ -123,22 +130,6 @@ function mergeSettingsWithDefaults(existing = {}) {
       return { ...item };
     });
 
-    const knownIds = new Set(merged.map((item) => item.id));
-    const knownLabels = new Set(merged.map((item) => item.label));
-
-    current.forEach((entry) => {
-      const entryId = entry.id || uid(`${key}_custom`);
-      const entryLabel = entry.label || "Entrée personnalisée";
-      if (knownIds.has(entryId) || knownLabels.has(entryLabel)) return;
-      merged.push({
-        id: entryId,
-        label: entryLabel,
-        amount: typeof entry.amount === "number" ? entry.amount : 0,
-      });
-      knownIds.add(entryId);
-      knownLabels.add(entryLabel);
-    });
-
     result[key] = merged;
   });
   return result;
@@ -151,5 +142,15 @@ if (typeof module !== "undefined") {
     mergeSettingsWithDefaults,
     ensureSettingsShape,
     cloneDefaults,
+  };
+}
+
+if (typeof window !== "undefined") {
+  window.BudgifyStore = {
+    getAppData: () => appData,
+    replaceAppData,
+    cloneDefaults,
+    ensureSettingsShape,
+    mergeSettingsWithDefaults,
   };
 }
