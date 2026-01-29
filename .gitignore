@@ -1,0 +1,4 @@
+# Ignorer les secrets locaux du backend
+DB/.env
+DB/node_modules
+DB/prisma/dev.db

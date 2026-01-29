@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String
+  months       Month[]
+  fixedCharges SettingsFixedCharge[]
+  subscriptions SettingsSubscription[]
+  savingCategories SettingsSavingCategory[]
+  credits      SettingsCredit[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Month {
+  id          String           @id @default(uuid())
+  key         String
+  carryOver   Decimal          @default(0)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  incomes     Income[]
+  variableCharges VariableCharge[]
+  expenses    Expense[]
+  paidFixedCharges PaidFixedCharge[]
+  paidSubscriptions PaidSubscription[]
+  paidCredits PaidCredit[]
+  savingsEntries SavingsEntry[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, key])
+}
+
+model Income {
+  id          String   @id @default(uuid())
+  label       String?
+  placeholder String?
+  amount      Decimal  @default(0)
+  month       Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId     String
+  createdAt   DateTime @default(now())
+}
+
+model VariableCharge {
+  id        String   @id @default(uuid())
+  label     String
+  category  String?
+  amount    Decimal  @default(0)
+  incurredOn DateTime @default(now())
+  month     Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId   String
+  createdAt DateTime @default(now())
+}
+
+model Expense {
+  id         String   @id @default(uuid())
+  label      String
+  category   String?
+  amount     Decimal  @default(0)
+  incurredOn DateTime @default(now())
+  reimbursed Decimal  @default(0)
+  importance String?  @default("")
+  isRefund   Boolean  @default(false)
+  month      Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId    String
+  createdAt  DateTime @default(now())
+}
+
+model PaidFixedCharge {
+  id        String   @id @default(uuid())
+  amount    Decimal  @default(0)
+  paidOn    DateTime @default(now())
+  month     Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId   String
+  setting   SettingsFixedCharge @relation(fields: [settingId], references: [id])
+  settingId String
+}
+
+model PaidSubscription {
+  id        String   @id @default(uuid())
+  amount    Decimal  @default(0)
+  paidOn    DateTime @default(now())
+  month     Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId   String
+  setting   SettingsSubscription @relation(fields: [settingId], references: [id])
+  settingId String
+}
+
+model PaidCredit {
+  id        String   @id @default(uuid())
+  amount    Decimal  @default(0)
+  paidOn    DateTime @default(now())
+  month     Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId   String
+  setting   SettingsCredit @relation(fields: [settingId], references: [id])
+  settingId String
+}
+
+model SavingsEntry {
+  id        String   @id @default(uuid())
+  label     String
+  amount    Decimal  @default(0)
+  savedOn   DateTime @default(now())
+  month     Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  monthId   String
+  category  SettingsSavingCategory? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+}
+
+model SettingsFixedCharge {
+  id       String   @id @default(uuid())
+  label    String
+  amount   Decimal  @default(0)
+  sortOrder Int     @default(0)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  payments PaidFixedCharge[]
+}
+
+model SettingsSubscription {
+  id       String   @id @default(uuid())
+  label    String
+  amount   Decimal  @default(0)
+  sortOrder Int     @default(0)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  payments PaidSubscription[]
+}
+
+model SettingsSavingCategory {
+  id       String   @id @default(uuid())
+  label    String
+  target   Decimal? @default(0)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  entries  SavingsEntry[]
+}
+
+model SettingsCredit {
+  id       String   @id @default(uuid())
+  label    String
+  amount   Decimal  @default(0)
+  sortOrder Int     @default(0)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  payments PaidCredit[]
+}

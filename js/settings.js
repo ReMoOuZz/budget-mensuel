@@ -33,10 +33,15 @@ const SETTINGS_CONFIG = {
 
 const SETTINGS_CATEGORIES = Object.keys(SETTINGS_CONFIG);
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await ensureAppReady();
   if (!appData?.settings) appData.settings = {};
   SETTINGS_CATEGORIES.forEach((key) => renderCategory(key));
   initAddButtons();
+});
+
+document.addEventListener("budgify:data:hydrated", () => {
+  SETTINGS_CATEGORIES.forEach((key) => renderCategory(key));
 });
 
 function renderCategory(key) {
@@ -68,7 +73,7 @@ function buildRow(key, item, config = {}) {
   labelInput.placeholder = config.defaultLabel || "Libellé";
   labelInput.value = item.label || "";
 
-  labelInput.addEventListener("blur", () => updateLabel(item, labelInput));
+  labelInput.addEventListener("blur", () => updateLabel(key, item, labelInput));
   labelInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -87,7 +92,8 @@ function buildRow(key, item, config = {}) {
   amountInput.addEventListener("change", () => {
     item.amount = sanitizeAmount(amountInput.value);
     amountInput.value = formatAmountInput(item.amount);
-    persist();
+    persistLocalSettings();
+    scheduleSettingUpdate(key, item);
     toast("Montant mis à jour.");
   });
 
@@ -109,13 +115,14 @@ function buildRow(key, item, config = {}) {
   return row;
 }
 
-function updateLabel(item, input) {
+function updateLabel(key, item, input) {
   const newValue = input.value.trim();
   if (item.label === newValue) return;
   const normalized = newValue ? capitalizeFirstLetter(newValue) : "";
   item.label = normalized;
   input.value = normalized;
-  persist();
+  persistLocalSettings();
+  scheduleSettingUpdate(key, item);
   toast("Libellé mis à jour.");
 }
 
@@ -130,30 +137,53 @@ function getCategoryConfig(key) {
   return SETTINGS_CONFIG[key] || {};
 }
 
-function addEntry(key) {
+async function addEntry(key) {
   const list = getSettingsList(key);
   const config = getCategoryConfig(key);
-  list.push({
+  const entry = {
     id: uid(config.idPrefix || `custom_${key}`),
     label: "",
     amount: 0,
-  });
-  persist();
+  };
+  list.push(entry);
+  persistLocalSettings();
   renderCategory(key);
   toast(config.toastAdd || "Entrée ajoutée.");
+
+  if (window.BudgifyAPI && window.BudgifyApp?.currentUser) {
+    try {
+      await window.BudgifyAPI.upsertSetting(key, {
+        label: entry.label,
+        amount: entry.amount,
+        sortOrder: list.length - 1,
+      });
+      await refreshSettingsFromServer();
+    } catch (error) {
+      console.warn("[settings] sync creation échouée", error);
+    }
+  }
 }
 
-function removeEntry(key, item) {
+async function removeEntry(key, item) {
   const list = getSettingsList(key);
   const index = list.indexOf(item);
   if (index === -1) return;
   const removedId = list[index]?.id;
   list.splice(index, 1);
   cleanupTrackingForEntry(key, removedId);
-  persist();
+  persistLocalSettings();
   renderCategory(key);
   const config = getCategoryConfig(key);
   toast(config.toastDelete || "Entrée supprimée.");
+
+  if (removedId && window.BudgifyAPI && window.BudgifyApp?.currentUser) {
+    try {
+      await window.BudgifyAPI.removeSetting(key, removedId);
+      await refreshSettingsFromServer();
+    } catch (error) {
+      console.warn("[settings] suppression distante impossible", error);
+    }
+  }
 }
 
 function cleanupTrackingForEntry(key, entryId) {
@@ -197,8 +227,59 @@ function formatAmountInput(value) {
   return String(rounded).replace(".", ",");
 }
 
-function persist() {
+function persistLocalSettings() {
   saveData();
+}
+
+const pendingSettingTimers = new Map();
+
+function scheduleSettingUpdate(category, item) {
+  if (!window.BudgifyAPI || !window.BudgifyApp?.currentUser || !item?.id) {
+    return;
+  }
+  const timerKey = `${category}:${item.id}`;
+  if (pendingSettingTimers.has(timerKey)) {
+    clearTimeout(pendingSettingTimers.get(timerKey));
+  }
+  const timer = setTimeout(async () => {
+    pendingSettingTimers.delete(timerKey);
+    try {
+      await window.BudgifyAPI.upsertSetting(category, {
+        id: item.id,
+        label: item.label || "",
+        amount: item.amount || 0,
+        sortOrder: getSettingsList(category).indexOf(item),
+      });
+    } catch (error) {
+      console.warn("[settings] sync update échouée", error);
+    }
+  }, 600);
+  pendingSettingTimers.set(timerKey, timer);
+}
+
+async function refreshSettingsFromServer() {
+  if (!window.BudgifyAPI || !window.BudgifyApp?.currentUser) return;
+  try {
+    const remote = await window.BudgifyAPI.fetchSettings();
+    if (remote?.settings) {
+      appData.settings = remote.settings;
+      saveData();
+      window.BudgifyApp?.updateSyncedSavings?.(remote.settings.savings);
+      SETTINGS_CATEGORIES.forEach((key) => renderCategory(key));
+    }
+  } catch (error) {
+    console.warn("[settings] rafraîchissement impossible", error);
+  }
+}
+
+async function ensureAppReady() {
+  if (window.BudgifyApp?.ready) {
+    try {
+      await window.BudgifyApp.ready();
+    } catch (error) {
+      console.warn("Impossible de charger les données distantes.", error);
+    }
+  }
 }
 
 function toast(message, type = "ok") {

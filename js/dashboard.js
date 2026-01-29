@@ -85,9 +85,13 @@ const pieCharts = {
 };
 let chargesComparisonChart = null;
 
-let currentMonthKey = getInitialMonthKey();
+let currentMonthKey = null;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await ensureAppReady();
+  const ensuredKey = await ensureCurrentMonthAvailable();
+  currentMonthKey = ensuredKey || getInitialMonthKey();
+  setupProfileMenu();
   initMonthSelector();
   initMonthButtons();
   initTabs();
@@ -102,6 +106,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   ensureTodayDefault("expDate");
   ensureTodayDefault("varDate");
+  renderCurrentDate();
+  render();
+});
+
+document.addEventListener("budgify:data:hydrated", async () => {
+  await ensureCurrentMonthAvailable();
+  currentMonthKey = getInitialMonthKey();
+  rebuildMonthSelectorOptions();
+  const selector = document.getElementById("monthSelector");
+  if (selector && currentMonthKey) {
+    selector.value = currentMonthKey;
+  }
   render();
 });
 
@@ -110,8 +126,16 @@ document.addEventListener("DOMContentLoaded", () => {
 ------------------------------ */
 
 function getInitialMonthKey() {
+  const todayKey = getTodayKey();
+  if (appData?.months?.[todayKey]) {
+    return todayKey;
+  }
   const keys = Object.keys(appData.months || {}).sort();
   if (keys.length) return keys[keys.length - 1];
+  return todayKey;
+}
+
+function getTodayKey() {
   return getYYYYMM(new Date());
 }
 
@@ -137,6 +161,87 @@ function ensureTodayDefault(inputId = "expDate") {
   if (dateInput && !dateInput.value) {
     dateInput.value = new Date().toISOString().slice(0, 10);
   }
+}
+
+async function ensureAppReady() {
+  if (window.BudgifyApp?.ready) {
+    try {
+      await window.BudgifyApp.ready();
+    } catch (error) {
+      console.warn("Impossible de charger les données distantes.", error);
+    }
+  }
+}
+
+async function ensureCurrentMonthAvailable() {
+  if (!appData.months) appData.months = {};
+  const todayKey = getTodayKey();
+  if (appData.months[todayKey]) return todayKey;
+  try {
+    await createMonthFromTemplatesWithCarryOver(todayKey, { silent: true });
+    return todayKey;
+  } catch (error) {
+    console.warn("Impossible de créer automatiquement le mois courant.", error);
+    return null;
+  }
+}
+
+function renderCurrentDate() {
+  const el = document.getElementById("currentDateDisplay");
+  if (!el) return;
+  const now = new Date();
+  const formatted = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  el.textContent = formatted;
+}
+
+function setupProfileMenu() {
+  const shell = document.querySelector(".profile-shell");
+  const btn = document.getElementById("profileBtn");
+  const menu = document.getElementById("profileMenu");
+  const emailEl = document.getElementById("profileEmail");
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (!shell || !btn || !menu) return;
+
+  const closeMenu = () => {
+    shell.classList.remove("is-open");
+    btn.setAttribute("aria-expanded", "false");
+  };
+
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = shell.classList.toggle("is-open");
+    btn.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!shell.contains(event.target)) {
+      closeMenu();
+    }
+  });
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      closeMenu();
+      if (window.BudgifyApp?.logout) {
+        await window.BudgifyApp.logout();
+      }
+    });
+  }
+
+  const updateProfile = (user) => {
+    const email = user?.email || "";
+    if (emailEl) emailEl.textContent = email || "Utilisateur invité";
+  };
+
+  document.addEventListener("budgify:auth", (event) => {
+    updateProfile(event.detail?.user);
+  });
+
+  updateProfile(window.BudgifyApp?.currentUser);
 }
 
 /* -----------------------------
@@ -169,14 +274,19 @@ function rebuildMonthSelectorOptions() {
 }
 
 function initMonthButtons() {
-  document.getElementById("newMonthBtn").addEventListener("click", () => {
+  document.getElementById("newMonthBtn").addEventListener("click", async () => {
     const nextKey = addMonths(currentMonthKey, 1);
     if (appData.months[nextKey]) {
       toast(`Le mois ${nextKey} existe déjà.`, "warn");
       return;
     }
-    createMonthFromTemplatesWithCarryOver(nextKey);
-    switchToMonth(nextKey);
+    try {
+      await createMonthFromTemplatesWithCarryOver(nextKey);
+      switchToMonth(nextKey);
+    } catch (error) {
+      toast("Impossible de créer le mois.", "warn");
+      console.error(error);
+    }
   });
 }
 
@@ -255,7 +365,10 @@ function createBlankMonth(carryOver, incomeTemplate = []) {
   };
 }
 
-function createMonthFromTemplatesWithCarryOver(key) {
+async function createMonthFromTemplatesWithCarryOver(
+  key,
+  { silent = false } = {},
+) {
   // 1) carryOver = pnl (balance) du mois précédent si dispo
   const prevKey = getPreviousMonthKey(key);
   let carryOver = 0;
@@ -275,7 +388,16 @@ function createMonthFromTemplatesWithCarryOver(key) {
   appData.months[key] = createBlankMonth(carryOver, previousIncomes);
 
   saveData();
-  toast(`Mois créé : ${key} (report: ${carryOver}€)`);
+  try {
+    await syncMonthCreation(key);
+  } catch (error) {
+    console.warn("[month:create] sync impossible", error);
+  } finally {
+    schedulePersistCurrentMonth(key);
+  }
+  if (!silent) {
+    toast(`Mois créé : ${key} (report: ${carryOver}€)`);
+  }
 }
 
 /* -----------------------------
@@ -304,7 +426,7 @@ function render() {
   updateCharts(month);
   updateChargesComparisonChart();
 
-  saveData();
+  schedulePersistCurrentMonth();
 }
 
 function setText(id, text) {
@@ -572,7 +694,7 @@ function handleRecurringToggle(month, field, entryId, element) {
   element.setAttribute("aria-pressed", String(isPaid));
   element.classList.add("is-animating");
   setTimeout(() => element.classList.remove("is-animating"), 150);
-  saveData();
+  schedulePersistCurrentMonth();
 }
 
 /* -----------------------------
@@ -649,7 +771,7 @@ function normalizeVariableCharges(month) {
 function initSavingsCategoryForm() {
   const form = document.getElementById("savingsCategoryForm");
   if (!form) return;
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = document.getElementById("savingsCategoryInput");
     if (!input) return;
@@ -658,7 +780,7 @@ function initSavingsCategoryForm() {
       toast("Nom de catégorie requis.", "warn");
       return;
     }
-    addSavingsCategory(label);
+    await addSavingsCategory(label);
     form.reset();
   });
 }
@@ -671,17 +793,36 @@ function getSavingsCategories() {
   return appData.settings.savings;
 }
 
-function addSavingsCategory(label) {
+async function addSavingsCategory(label) {
   const categories = getSavingsCategories();
-  categories.push({
+  const entry = {
     id: crypto.randomUUID(),
     label: formatExpenseLabel(label),
-  });
+  };
+  categories.push(entry);
+  saveData();
   toast("Catégorie d'épargne ajoutée.");
   render();
+
+  if (window.BudgifyAPI && window.BudgifyApp?.currentUser) {
+    try {
+      const response = await window.BudgifyAPI.upsertSetting("savings", {
+        label: entry.label,
+        amount: 0,
+      });
+      if (response?.item?.id) {
+        entry.id = response.item.id;
+        entry.label = response.item.label;
+        saveData();
+      }
+      await refreshSettingsData();
+    } catch (error) {
+      console.warn("[savings] sync création échouée", error);
+    }
+  }
 }
 
-function deleteSavingsCategory(categoryId) {
+async function deleteSavingsCategory(categoryId) {
   if (!categoryId) return;
   const categories = getSavingsCategories();
   const index = categories.findIndex((cat) => cat.id === categoryId);
@@ -694,8 +835,18 @@ function deleteSavingsCategory(categoryId) {
       );
     }
   });
+  saveData();
   toast("Catégorie supprimée.");
   render();
+
+  if (window.BudgifyAPI && window.BudgifyApp?.currentUser) {
+    try {
+      await window.BudgifyAPI.removeSetting("savings", categoryId);
+      await refreshSettingsData();
+    } catch (error) {
+      console.warn("[savings] suppression distante impossible", error);
+    }
+  }
 }
 
 function renderSavingsCategories(month) {
@@ -724,6 +875,24 @@ function renderSavingsCategories(month) {
   }
   setText("savingsTotal", formatSavingsDisplay(total));
   document.getElementById("savingsTotal")?.classList.add("savings-amount");
+}
+
+async function refreshSettingsData(shouldRender = true) {
+  if (!window.BudgifyAPI || !window.BudgifyApp?.currentUser) return;
+  try {
+    const remote = await window.BudgifyAPI.fetchSettings();
+    if (remote?.settings) {
+      appData.settings = remote.settings;
+      window.BudgifyStore?.ensureSettingsShape?.(appData);
+      window.BudgifyApp?.updateSyncedSavings?.(remote.settings.savings);
+      saveData();
+      if (shouldRender) {
+        render();
+      }
+    }
+  } catch (error) {
+    console.warn("[settings] rafraîchissement dashboard impossible", error);
+  }
 }
 
 function buildSavingsCategoryCard(category, month) {
@@ -1670,6 +1839,71 @@ function escapeSelectorKey(value) {
     return CSS.escape(value);
   }
   return String(value).replaceAll('"', '\\"');
+}
+
+const monthPersistTimers = new Map();
+
+function schedulePersistCurrentMonth(targetKey = currentMonthKey) {
+  saveData();
+  if (!window.BudgifyAPI || !window.BudgifyApp?.currentUser) return;
+  if (!targetKey || !appData.months?.[targetKey]) return;
+  const existing = monthPersistTimers.get(targetKey);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    monthPersistTimers.delete(targetKey);
+    persistMonthNow(targetKey).catch((error) => {
+      console.warn("[month] sync échouée", error);
+    });
+  }, 800);
+  monthPersistTimers.set(targetKey, timer);
+}
+
+async function persistMonthNow(targetKey = currentMonthKey) {
+  if (!window.BudgifyAPI || !window.BudgifyApp?.currentUser) return;
+  const payload = buildMonthPayload(targetKey);
+  if (!payload) return;
+  try {
+    await window.BudgifyAPI.upsertMonth(targetKey, payload);
+  } catch (error) {
+    if (error?.status === 404) {
+      console.warn(`[month] ${targetKey} introuvable, création…`);
+      await createMonthRemote(payload);
+    } else {
+      throw error;
+    }
+  }
+}
+
+async function syncMonthCreation(targetKey) {
+  if (!window.BudgifyAPI || !window.BudgifyApp?.currentUser) return;
+  const payload = buildMonthPayload(targetKey);
+  if (!payload) return;
+  try {
+    await createMonthRemote(payload);
+  } catch (error) {
+    if (error?.status === 409) {
+      await persistMonthNow(targetKey);
+    } else {
+      throw error;
+    }
+  }
+}
+
+async function createMonthRemote(payload) {
+  await window.BudgifyAPI.createMonth(payload);
+}
+
+function buildMonthPayload(targetKey = currentMonthKey) {
+  if (!window.BudgifySync?.serializeMonth) return null;
+  return window.BudgifySync.serializeMonth(
+    appData.months?.[targetKey],
+    targetKey,
+    {
+      toNumber,
+      syncedSavingsIds:
+        window.BudgifySync.getSyncedSavingsCategoryIds?.() ?? new Set(),
+    },
+  );
 }
 
 function formatNumberInputValue(value, blankZero = false) {
