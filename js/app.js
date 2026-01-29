@@ -2,6 +2,8 @@
   const BudgifyApp = {
     ready: () => ensureBootstrap(),
     logout: () => logoutAndPrompt(),
+    updateSyncedSavings: (list) =>
+      window.BudgifySync?.updateSyncedSavings?.(list),
   };
   let bootstrapPromise = null;
   let authMode = "login";
@@ -30,10 +32,7 @@
         await hydrateFromRemote();
       }
     } catch (error) {
-      console.warn(
-        "Impossible de synchroniser avec l'API, utilisation des données locales.",
-        error,
-      );
+      handleNetworkError(error);
     }
     return window.BudgifyStore.getAppData();
   }
@@ -101,6 +100,7 @@
             (authMode === "register"
               ? "Inscription impossible."
               : "Connexion impossible.");
+          handleNetworkError(error);
         } finally {
           submitBtn.disabled = false;
         }
@@ -130,6 +130,7 @@
       months: Object.keys(months).length ? months : defaults.months,
     };
     window.BudgifyStore.ensureSettingsShape(data);
+    window.BudgifySync?.updateSyncedSavings?.(settings?.savings);
     return data;
   }
 
@@ -244,6 +245,27 @@
     document.dispatchEvent(
       new CustomEvent("budgify:auth", { detail: { user } }),
     );
+  }
+
+  function handleNetworkError(error) {
+    if (!error || error?.status === 401) return;
+    const message =
+      typeof error?.message === "string"
+        ? error.message
+        : "Aucune réponse du serveur.";
+    showNetworkToast(message, error?.status);
+  }
+
+  function showNetworkToast(message, status) {
+    const toast = document.createElement("div");
+    toast.className = "toast toast-error";
+    toast.textContent = `Pas de connexion (${status ?? "réseau"}). ${message}`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 400);
+    }, 3000);
   }
 
   window.BudgifyApp = BudgifyApp;
