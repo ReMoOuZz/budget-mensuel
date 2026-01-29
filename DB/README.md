@@ -20,13 +20,16 @@ npm run dev
 3. Poussez le code : `git subtree push --prefix DB heroku main` (ou repo séparé).
 4. Exécutez les migrations : `heroku run npm run prisma:migrate`.
 5. Définissez `JWT_SECRET`, `CLIENT_ORIGINS` (liste d'URL séparées par des virgules) via `heroku config:set`.
+6. (Optionnel) Ajustez les cookies d'auth avec `AUTH_COOKIE_*` (`NAME`, `SAMESITE`, `SECURE`, `DOMAIN`, `MAX_AGE_MS`) selon vos besoins.
 
 Exemple :
 
 ```bash
 heroku config:set \
   JWT_SECRET="xxxx" \
-  CLIENT_ORIGINS="https://remoouzz.github.io,https://remoouzz.github.io/budget-mensuel"
+  CLIENT_ORIGINS="https://remoouzz.github.io,https://remoouzz.github.io/budget-mensuel" \
+  AUTH_COOKIE_SAMESITE="none" \
+  AUTH_COOKIE_SECURE="true"
 ```
 
 ## Routes initiales

@@ -28,10 +28,21 @@ const resolvedOrigins =
       ? singleOrigin
       : DEFAULT_ORIGINS;
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const config = {
   port: Number(process.env.PORT || process.env.APP_PORT) || 4000,
   jwtSecret: process.env.JWT_SECRET || "dev-secret",
   clientOrigins: resolvedOrigins,
+  authCookie: {
+    name: process.env.AUTH_COOKIE_NAME || "token",
+    sameSite: process.env.AUTH_COOKIE_SAMESITE || (isProduction ? "none" : "lax"),
+    secure: process.env.AUTH_COOKIE_SECURE
+      ? process.env.AUTH_COOKIE_SECURE === "true"
+      : isProduction,
+    domain: process.env.AUTH_COOKIE_DOMAIN || undefined,
+    maxAgeMs: Number(process.env.AUTH_COOKIE_MAX_AGE_MS) || 7 * 24 * 60 * 60 * 1000,
+  },
 };
 
 if (!process.env.DATABASE_URL) {

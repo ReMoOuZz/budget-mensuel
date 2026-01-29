@@ -19,6 +19,30 @@ function sanitizeUser(user) {
   return { id: user.id, email: user.email, createdAt: user.createdAt };
 }
 
+function setAuthCookie(res, token) {
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: config.authCookie.sameSite,
+    secure: config.authCookie.secure,
+    maxAge: config.authCookie.maxAgeMs,
+  };
+  if (config.authCookie.domain) {
+    cookieOptions.domain = config.authCookie.domain;
+  }
+  res.cookie(config.authCookie.name, token, cookieOptions);
+}
+
+function clearAuthCookie(res) {
+  const cookieOptions = {
+    sameSite: config.authCookie.sameSite,
+    secure: config.authCookie.secure,
+  };
+  if (config.authCookie.domain) {
+    cookieOptions.domain = config.authCookie.domain;
+  }
+  res.clearCookie(config.authCookie.name, cookieOptions);
+}
+
 export async function register(req, res) {
   try {
     const { email, password } = credentialsSchema.parse(req.body);
@@ -31,12 +55,7 @@ export async function register(req, res) {
       data: { email, passwordHash },
     });
     const token = issueToken(user);
-    res.cookie("token", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setAuthCookie(res, token);
     return res.status(201).json({ user: sanitizeUser(user) });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -59,12 +78,7 @@ export async function login(req, res) {
       return res.status(401).json({ error: "Identifiants invalides" });
     }
     const token = issueToken(user);
-    res.cookie("token", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setAuthCookie(res, token);
     return res.json({ user: sanitizeUser(user) });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -87,6 +101,6 @@ export async function me(req, res) {
 }
 
 export function logout(req, res) {
-  res.clearCookie("token");
+  clearAuthCookie(res);
   return res.status(204).end();
 }
