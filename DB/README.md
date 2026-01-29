@@ -19,7 +19,15 @@ npm run dev
 2. Ajoutez Postgres : `heroku addons:create heroku-postgresql:hobby-dev`.
 3. Poussez le code : `git subtree push --prefix DB heroku main` (ou repo séparé).
 4. Exécutez les migrations : `heroku run npm run prisma:migrate`.
-5. Définissez `JWT_SECRET`, `CLIENT_ORIGIN` via `heroku config:set`.
+5. Définissez `JWT_SECRET`, `CLIENT_ORIGINS` (liste d'URL séparées par des virgules) via `heroku config:set`.
+
+Exemple :
+
+```bash
+heroku config:set \
+  JWT_SECRET="xxxx" \
+  CLIENT_ORIGINS="https://remoouzz.github.io,https://remoouzz.github.io/budget-mensuel"
+```
 
 ## Routes initiales
 

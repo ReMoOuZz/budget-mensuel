@@ -13,8 +13,16 @@ const app = express();
 
 app.use(helmet());
 app.use(morgan("dev"));
+const allowedOrigins = new Set(config.clientOrigins);
+
 app.use(cors({
-  origin: config.clientOrigin,
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`[cors] Origin refusé: ${origin}`);
+    return callback(new Error("Origine non autorisée par Budgify API"));
+  },
   credentials: true,
 }));
 app.use(cookieParser());
